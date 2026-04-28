@@ -1,0 +1,80 @@
+# ============================================================
+# Docker Compose — TaskFlow production stack
+# Services: taskflow-db, taskflow-api, taskflow-ui
+# Registry: GitHub Container Registry (ghcr.io)
+# ============================================================
+
+services:
+
+  # ── Database ───────────────────────────────────────────────
+  taskflow-db:
+    image: mysql:8.0
+    container_name: taskflow-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - taskflow-db-data:/var/lib/mysql
+    networks:
+      - taskflow-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── API ────────────────────────────────────────────────────
+  taskflow-api:
+    image: ghcr.io/mehdi-rochereau/taskflow-api:latest
+    container_name: taskflow-api
+    restart: unless-stopped
+    depends_on:
+      taskflow-db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: taskflow-db
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      REFRESH_TOKEN_EXPIRATION_DAYS: ${REFRESH_TOKEN_EXPIRATION_DAYS}
+    ports:
+      - "8082:8082"
+    networks:
+      - taskflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── UI ─────────────────────────────────────────────────────
+  taskflow-ui:
+    image: ghcr.io/mehdi-rochereau/taskflow-ui:latest
+    container_name: taskflow-ui
+    restart: unless-stopped
+    depends_on:
+      - taskflow-api
+    ports:
+      - "4000:80"
+    networks:
+      - taskflow-network
+
+# ── Volumes ────────────────────────────────────────────────
+volumes:
+  taskflow-db-data:
+    driver: local
+
+# ── Networks ───────────────────────────────────────────────
+networks:
+  taskflow-network:
+    driver: bridge
