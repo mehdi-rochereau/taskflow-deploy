@@ -233,6 +233,19 @@ Pour les détails de sécurité au niveau applicatif, voir :
 - [ ] Rotation des logs et centralisation
 
 ---
+ 
+## Gestion de projet & Documentation
+ 
+Les trois dépôts TaskFlow sont pilotés depuis un
+[GitHub Project](https://github.com/users/mehdi-rochereau/projects/4) unique :
+issue d'abord, branche créée depuis l'issue, pull request, squash merge, avec un
+flux à cinq statuts (Backlog → In Progress → In Review → Verifying → Done).
+ 
+La documentation transverse vit dans [`docs/`](docs/), dont le manuel complet de
+gestion de projet :
+[`docs/02-gestion-de-projet/PROJECT_MANAGEMENT.md`](docs/02-gestion-de-projet/PROJECT_MANAGEMENT.md).
+
+---
 
 ## Écosystème
 

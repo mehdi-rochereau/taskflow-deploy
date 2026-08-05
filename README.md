@@ -233,6 +233,19 @@ For application-level security details, see:
 - [ ] Log rotation and centralized logging
 
 ---
+ 
+## Project Management & Documentation
+ 
+The three TaskFlow repositories are managed from a single
+[GitHub Project](https://github.com/users/mehdi-rochereau/projects/4):
+issue first, branch created from the issue, pull request, squash merge, with a
+five-status workflow (Backlog → In Progress → In Review → Verifying → Done).
+ 
+Cross-repository documentation lives in [`docs/`](docs/), including the full
+project management manual:
+[`docs/02-gestion-de-projet/PROJECT_MANAGEMENT.md`](docs/02-gestion-de-projet/PROJECT_MANAGEMENT.md).
+
+---
 
 ## Ecosystem
 
