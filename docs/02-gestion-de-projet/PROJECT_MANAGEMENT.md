@@ -1,8 +1,8 @@
 # Gestion de projet TaskFlow
 
 > Document de référence pour la gestion des trois dépôts TaskFlow via GitHub Projects.
-> Emplacement recommandé : `taskflow-deploy/docs/02-gestion-de-projet/PROJECT_MANAGEMENT.md`
-> Dernière mise à jour : 5 août 2026, après la session 4
+> Emplacement recommandé : `taskflow-deploy/PROJECT_MANAGEMENT.md`
+> Dernière mise à jour : 6 août 2026, après la session 6
 
 Ce document a deux parties indépendantes.
 
@@ -36,8 +36,9 @@ même configuration sur un projet neuf, quel qu'il soit.
 13. [Créer les vues](#13-créer-les-vues)
 14. [Configurer les dépôts](#14-configurer-les-dépôts)
 15. [Les templates](#15-les-templates)
-16. [Limites de plan et impossibilités](#16-limites-de-plan-et-impossibilités)
-17. [Ce qui a été écarté et pourquoi](#17-ce-qui-a-été-écarté-et-pourquoi)
+16. [Clore la mise en place](#16-clore-la-mise-en-place)
+17. [Limites de plan et impossibilités](#17-limites-de-plan-et-impossibilités)
+18. [Ce qui a été écarté et pourquoi](#18-ce-qui-a-été-écarté-et-pourquoi)
 
 ---
 
@@ -135,7 +136,7 @@ la confirmation que ça fonctionne réellement en production.
 2. Quand je passe une carte en **Done**, je renseigne `End Date`.
 
 Ces deux champs alimentent le Gantt de la vue Roadmap. Personne ne les remplira
-à ma place : ils sont manuels par choix assumé (voir section 17). Les descriptions
+à ma place : ils sont manuels par choix assumé (voir section 18). Les descriptions
 des options de statut le rappellent au moment exact du déplacement de carte.
 
 ---
@@ -342,7 +343,8 @@ L'issue est déjà fermée, rien ne change dans le dépôt.
 git checkout main
 git pull origin main
 git fetch --prune origin
-git branch -d feat/42-task-assignee-select
+git branch -vv
+git branch -D feat/42-task-assignee-select
 ```
 
 Il n'y a **pas** de `git push origin --delete` : la branche distante est supprimée
@@ -350,8 +352,33 @@ automatiquement au merge. `--prune` supprime les références locales pointant v
 des branches distantes disparues, sans quoi `git branch -a` afficherait
 indéfiniment des branches fantômes.
 
-`git branch -d` refuse de supprimer une branche non fusionnée, ce qui est une
-sécurité. Ne jamais utiliser `-D` sans savoir précisément pourquoi.
+**`git branch -D` est obligatoire ici, et `-d` échoue systématiquement.** Ce n'est
+pas une négligence, c'est une conséquence directe du squash merge. `-d` refuse de
+supprimer une branche dont le sommet n'est pas atteignable depuis `HEAD`. Or un
+squash merge ne fusionne rien au sens de Git : il fabrique sur `main` un commit
+neuf, dont le parent est le dernier commit de `main` et non les commits de la
+branche. Ceux-ci ne deviennent jamais ancêtres du commit de squash, et Git conclut
+que la branche n'est pas fusionnée. Le message est
+`error: The branch 'feat/42-task-assignee-select' is not fully merged`.
+
+La prescription courante de `-d` suppose un merge classique, où le commit de merge
+a la branche pour second parent. Sur un dépôt où le squash est la seule méthode
+autorisée, elle ne peut jamais s'appliquer.
+
+`-D` supprime sans vérification, donc sans le garde-fou de `-d`. Le contrôle est
+reporté sur `git branch -vv`, exécuté juste avant : une branche dont la distante a
+été supprimée au merge s'affiche avec la mention `gone`.
+
+```
+  feat/42-task-assignee-select  a1b2c3d [origin/feat/42-task-assignee-select: gone] feat: add task assignee select
+* main                          e4f5g6h [origin/main] feat: add task assignee select with project members
+```
+
+**Ne lancer `-D` que sur une branche marquée `gone`.** L'absence de cette mention
+signifie que la branche distante existe encore, donc que la pull request n'est pas
+mergée, et la suppression perdrait le travail. C'est un contrôle plus sûr que celui
+de `-d`, puisqu'il atteste du merge réel côté GitHub là où `-d` n'atteste que d'une
+généalogie locale.
 
 ---
 
@@ -564,8 +591,50 @@ Revenir à un état livré par `git checkout v1.0.0`. Comparer deux versions par
 ### Lien avec les milestones
 
 Un milestone porte le nom d'une version : `v1.0.0`, `v1.1.0`. Il regroupe les issues
-d'**un seul dépôt** livrées dans cette version. Il se ferme quand la version est
-livrée, pas quand une date arrive, donc il n'a pas de date d'échéance.
+d'**un seul dépôt** livrées dans cette version. Il n'a pas de date d'échéance : il se
+ferme quand la version est livrée, pas quand une date arrive.
+
+**Le moment de la fermeture est après la publication de la release**, pas avant. La
+release se rédige depuis les issues du milestone, et un milestone fermé reste
+parfaitement consultable, mais fermer d'abord revient à ranger la matière première
+avant de s'en servir. Les trois milestones `v1.0.0` de TaskFlow ont été fermés le
+6 août 2026, après publication des trois releases.
+
+Fermer un milestone ne touche à aucune issue et ne déclenche aucun workflow du
+Project :
+
+```powershell
+gh api repos/<owner>/<repo>/milestones/<numéro> -X PATCH -f state="closed"
+```
+
+Le numéro d'un milestone est propre au dépôt et n'a aucun rapport avec son nom. Le
+relever avant :
+
+```powershell
+gh api repos/<owner>/<repo>/milestones?state=all --jq '.[] | "\(.number)|\(.title)|\(.state)"'
+```
+
+### Supprimer un milestone vidé
+
+Un milestone dont les issues ont été réaffectées ailleurs n'affiche plus que des
+compteurs à zéro. Le garder fermé et vide laisse croire à une version sans contenu.
+Le supprimer est **irréversible** et sans effet sur les issues, qui n'y sont plus
+rattachées.
+
+**Deux conditions préalables, impératives.** Vérifier que les compteurs sont bien à
+zéro, `open_issues` comme `closed_issues`. Et s'assurer que l'information portée par
+le découpage survit ailleurs, faute de quoi la suppression l'efface définitivement.
+
+```powershell
+gh api repos/<owner>/<repo>/milestones?state=all --jq '.[] | "\(.number)|\(.title)|\(.open_issues)|\(.closed_issues)"'
+gh api --method DELETE repos/<owner>/<repo>/milestones/<numéro>
+```
+
+Sur `taskflow-api`, les six milestones de sprint ont été vidés en session 4 au profit
+de `v1.0.0`, puis supprimés en session 5. Leur découpage survit dans les six issues
+parents n° 38 à 43, qui l'épousent exactement, et leurs échéances sont conservées
+dans `etat-github-project.md`. C'est cette double conservation qui a rendu la
+suppression acceptable.
 
 Les milestones ne servent **pas** à représenter les phases de travail. Ce rôle
 appartient au champ `Phase` (voir section 11).
@@ -580,9 +649,56 @@ parents épousent exactement les six anciens sprints.
 
 ### Releases
 
-Un tag n'est pas une release. GitHub permet de publier une release à partir d'un
-tag, avec un titre, des notes de version et des binaires. Non utilisé pour
-l'instant.
+Un tag n'est pas une release. Le tag est un objet Git, un pointeur immuable vers un
+commit. La release est un objet GitHub, une page publiée portant un titre, des notes
+de version et éventuellement des binaires. **Elle s'appuie sur un tag existant sans
+s'y substituer.**
+
+Adoptées en session 5 : une release par dépôt et par version. Sans elle, la page
+d'accueil d'un dépôt public n'annonce rien, et le seul moyen de savoir ce que
+contient `v1.0.0` est de lire l'historique des commits.
+
+### Rédiger les notes
+
+Les notes se rédigent **depuis les issues du milestone de la version**, pas depuis
+le journal des commits. Un commit dit ce qui a été changé dans le code, une issue dit
+ce qui a été livré à l'utilisateur. Sur un dépôt à hiérarchie, partir des issues
+parents, qui portent déjà le découpage par thème.
+
+GitHub propose un bouton `Generate release notes` qui fabrique une liste de pull
+requests. **Écarté sur TaskFlow** : il produit une énumération de titres techniques,
+et sur `taskflow-ui` où l'essentiel du travail est arrivé directement sur `main` sans
+pull request, il ne restituerait presque rien.
+
+Terminer les notes par un lien vers le milestone de la version, qui donne accès à la
+liste complète des issues.
+
+### Publier
+
+Rédiger les notes dans un fichier `.md` hors des clones, puis :
+
+```powershell
+gh release create v1.0.0 --repo <owner>/<repo> --title "v1.0.0" --notes-file .\notes-v1.0.0.md --verify-tag
+```
+
+`--verify-tag` est l'option qui compte. Sans elle, `gh release create` **crée le tag
+s'il n'existe pas**, sur le commit courant de la branche par défaut, silencieusement.
+Sur un dépôt dont les tags ont été posés et attribués avec soin, c'est exactement ce
+qu'il ne faut pas : un tag créé par ce chemin porterait l'identité du poste courant
+et pointerait peut-être ailleurs que le tag voulu. Avec `--verify-tag`, la commande
+échoue proprement si le tag n'existe pas déjà.
+
+`--notes-file` évite le problème PowerShell 5.1 des guillemets et des retours à la
+ligne, exactement comme `--body-file` pour une issue.
+
+Ne pas passer `--latest` ni `--prerelease` : GitHub marque de lui-même la release la
+plus récente.
+
+### Ordre des opérations
+
+Le tag d'abord, la release ensuite, la fermeture du milestone en dernier. Chaque
+étape s'appuie sur la précédente : la release exige le tag, et les notes se rédigent
+depuis un milestone encore ouvert.
 
 ---
 
@@ -590,6 +706,7 @@ l'instant.
 
 | Vue | Type | À quoi elle sert |
 |-----|------|------------------|
+| **By repository detail** | Table | La capture de portfolio. Les trois dépôts groupés, hiérarchie visible. |
 | **Kanban** | Board | Le travail quotidien. Où en est chaque chose. |
 | **Roadmap overview** | Roadmap | Le Gantt de présentation. Seulement les issues parents. |
 | **Roadmap detail** | Roadmap | Le Gantt fin, sous-issues comprises. |
@@ -618,9 +735,20 @@ section 13.
 `By repository` est la vue la plus parlante pour une présentation : elle montre en
 une image que trois dépôts sont pilotés depuis un point unique.
 
-Le zoom de `Roadmap overview` est réglé sur `Year` et non `Month`, pour donner
-assez de recul à une capture couvrant plusieurs mois. `Month` reste préférable
-pour lire le détail d'une période courte.
+Le zoom des deux Roadmaps est réglé sur `Quarter`. `Year` a été essayé en session 4
+puis abandonné en session 5 : il comprime les barres au point de les rendre
+illisibles sur une capture. `Quarter` couvre mars à août en un écran, ce qui est
+exactement l'amplitude du portfolio. `Month` reste préférable pour lire le détail
+d'une période courte, mais ne convient pas à une capture d'ensemble.
+
+`By repository detail` a été créée en session 5 parce que le Board `By repository`
+se capture mal : quatre colonnes de statut sur cinq sont vides, et la colonne `Done`
+tronque son contenu derrière un bouton `Load more items`. Le Board est conservé, il
+redeviendra parlant quand plusieurs statuts seront peuplés. Une Table groupée par
+dépôt, elle, montre les trois dépôts et la hiérarchie sur une seule image.
+
+Jeu de captures retenu pour le portfolio : `By repository detail`, `Roadmap detail`
+groupes repliés, `Kanban`. En réserve : `Roadmap overview` et `By phase`.
 
 ---
 
@@ -636,6 +764,49 @@ affichant des champs qui doivent exister. Les labels avant les templates, un
 template déclarant `labels: feat` n'appliquant rien si le label n'existe pas.
 La protection de `main` en dernier, les étapes précédentes écrivant sur `main`.
 
+## Prérequis
+
+Toute la partie 2 suppose GitHub CLI installé et authentifié.
+
+```powershell
+winget install --id GitHub.cli
+gh auth login
+gh auth status
+```
+
+`gh auth login` propose plusieurs modes ; retenir l'authentification par navigateur,
+qui évite de manipuler un jeton à la main. Le scope `read:project` n'est pas accordé
+par défaut et n'apparaît donc pas dans la sortie de `gh auth status`. L'ajouter,
+et seulement s'il manque :
+
+```powershell
+gh auth refresh -s read:project
+```
+
+Ce scope peut être perdu si le jeton est réémis. Le revérifier avant toute série de
+commandes `gh project`, faute de quoi elles échouent une par une sans arrêter un
+script.
+
+Si l'exécution d'un `.ps1` est refusée par la politique PowerShell :
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+`-Scope Process` limite la levée à la fenêtre courante. Elle disparaît à sa
+fermeture, ce qui évite d'abaisser durablement la politique du poste.
+
+### Relever la configuration
+
+Le script `snapshot-github-project.ps1`, versionné dans le dépôt de déploiement,
+produit un dossier daté contenant l'état du Project et des trois dépôts : champs,
+items, issues, pull requests, milestones, labels, réglages, rulesets, templates,
+secrets et tags. Il génère aussi un fichier `a-remplir-manuellement.txt` listant les
+seuls éléments qu'aucune API n'expose, à vérifier à l'œil dans l'interface.
+
+C'est l'outil de contrôle de tout ce qui est décrit ci-dessous. Le lancer après
+chaque session de configuration, et confronter sa sortie à `etat-github-project.md`.
+
 ---
 
 ## 9. Vue d'ensemble de la configuration cible
@@ -647,10 +818,13 @@ Un GitHub Project unique, rattaché à un compte utilisateur, couvrant plusieurs
 
 **Workflows intégrés** : huit activés, trois désactivés.
 
-**Vues** : sept, réparties entre Board, Roadmap et Table.
+**Vues** : huit, réparties entre Board, Roadmap et Table.
 
-**Dépôts** : chacun avec ses huit labels, son milestone de version, son tag, ses
-six templates, ses réglages de merge et son ruleset.
+**Dépôts** : chacun avec ses huit labels, son milestone de version, son tag, sa
+release, ses six templates, ses réglages de merge et son ruleset. Le dépôt de
+déploiement porte en plus le dossier `docs/` de documentation transverse.
+Les trois dépôts sont **publics**. En plan Free, les rulesets et la protection de
+branche ne sont disponibles que sur les dépôts publics.
 
 **Aucun secret, aucun PAT, aucun workflow GitHub Actions dédié à la gouvernance.**
 Tout repose sur les automatisations natives de GitHub.
@@ -715,8 +889,8 @@ gh api graphql -f query='
 
 GitHub bascule automatiquement une itération dans `completedIterations` dès que sa
 date de fin est passée. L'API renvoie `startDate` et `duration`, jamais la date de
-fin : ajouter la durée moins un, les bornes étant incluses. Les breaks ne sont pas
-exposés, ils ne se vérifient qu'à l'œil.
+fin : ajouter la durée moins un, les bornes étant incluses. Les breaks ne sont pas exposés par cette requête. Ils se vérifient à l'œil, sur la
+Roadmap, pour la raison expliquée en section 11.
 
 ---
 
@@ -738,6 +912,17 @@ champs de type Date créés manuellement. Ils restent utilisables pour le tri et
 filtrage. D'où la nécessité de créer deux champs de date personnalisés.
 
 ### Reconfigurer le champ Status
+
+Le champ `Status` existe déjà, créé par GitHub avec un jeu d'options par défaut
+nettement plus pauvre que la cible : trois options seulement, sans description. Comme
+pour les itérations générées à la création d'un champ Iteration, il faut les
+reprendre entièrement.
+
+Ne pas les supprimer pour les recréer. Renommer celles qui correspondent à un statut
+de la cible, ajouter les manquantes par `Add option`, supprimer le reste. Renommer
+une option préserve les items qui la portent ; la supprimer les laisse sans statut.
+Sur un Project neuf, aucun item n'existe encore et la question est théorique, mais le
+réflexe est le bon.
 
 Dans Settings, cliquer sur **Status**. Bouton `Add option` pour ajouter,
 poignée à six points pour réordonner par glisser-déposer. Aucun bouton de
@@ -809,11 +994,32 @@ Pour éditer : Settings, cliquer sur le nom du champ.
 - Insérer une pause : survoler la ligne de séparation **au-dessus** d'une itération,
   puis **Insert break**. Un break n'est pas une ligne qu'on ajoute, c'est une
   respiration entre deux itérations existantes. Il occupe automatiquement l'espace
-  disponible.
+  disponible. **Il n'est visible dans cet écran que si ses deux itérations voisines
+  sont dans le même onglet** ; voir ci-dessous.
 
-Le panneau sépare les itérations en deux onglets, `Active` et `Completed`, selon
-que leur date de fin est passée ou non. Une itération créée par erreur peut donc
-se trouver dans l'un ou l'autre.
+Le panneau sépare les itérations en deux onglets, `Active` et `Completed`, selon que
+leur date de fin est passée ou non. Une itération créée par erreur peut donc se
+trouver dans l'un ou l'autre.
+
+**Cette séparation masque une partie des breaks, et c'est un piège de relevé.** Un
+break se dessine entre deux itérations. Il n'apparaît donc que là où ses deux
+voisines sont affichées ensemble, à l'intérieur d'un même onglet. Le break qui
+précède l'itération courante a sa voisine de gauche dans `Completed` et sa voisine de
+droite dans `Active` : il tombe dans la coupure et ne s'affiche nulle part.
+
+Sur TaskFlow, l'écran de réglages montre **un** break, entre les Phases 6 et 7, toutes
+deux complétées. La Roadmap en montre **deux**, le second couvrant l'intervalle du
+3 juin au 1er août entre la Phase 7 et la Phase 8, courante. Constat du 5 août 2026.
+
+**En cas de désaccord, la Roadmap fait foi.** Ne jamais conclure à l'absence d'un
+break depuis l'écran de réglages seul. Que ce second break soit un objet déclaré que
+l'écran masque, ou un rendu automatique de l'intervalle par la frise, n'a pas été
+établi et n'a aucune conséquence pratique : dans les deux cas la timeline est juste et
+il n'y a rien à corriger.
+
+Conséquence sur la méthode de relevé : le contrôle des breaks se fait **sur la
+Roadmap**, pas dans `Settings`. `Settings` reste l'endroit où on les pose et où on
+compte les itérations.
 
 **Les itérations peuvent être créées dans le passé.** C'est ce qui permet de
 reconstruire une timeline historique.
@@ -892,6 +1098,16 @@ l'action. Le bloc du bas n'est **pas un bouton**, il décrit ce que le workflow 
 Passer en édition par **Edit** en haut à droite, valider par **Save workflow**.
 
 ### Configuration cible
+
+**Ne pas supposer l'état de départ.** GitHub active certains de ces workflows à la
+création d'un Project et en laisse d'autres inactifs, et cet état par défaut n'est pas
+documenté de façon stable. Ouvrir les onze workflows un par un et confronter chacun au
+tableau ci-dessous, plutôt que d'activer une liste et de supposer que le reste est
+éteint. Un workflow activé par défaut avec une cible différente de la cible voulue est
+le cas le plus insidieux : il fonctionne, mais pas comme le document le décrit.
+
+C'est le seul point de toute la partie 2 qu'aucune commande ne peut vérifier après
+coup, les workflows intégrés n'étant exposés par aucune API.
 
 | Workflow | État | Configuration | Rôle |
 |----------|------|---------------|------|
@@ -991,6 +1207,10 @@ modification non sauvegardée est signalée par un point à côté du nom de l'o
 et perdue au changement d'onglet ; le bouton **Discard** l'annule explicitement.
 
 Renommer une vue : double-clic sur l'onglet, ou menu de l'onglet puis `Rename view`.
+Changer le type d'une vue : bouton **View** en haut à droite, premier bloc du
+panneau, choisir `Table`, `Board` ou `Roadmap`, puis **Save view**. Le changement
+conserve les filtres et les champs visibles, mais pas le regroupement, `Group by` et
+`Column by` n'acceptant pas les mêmes champs.
 Réordonner les onglets : glisser-déposer. Le premier onglet s'ouvre par défaut.
 
 ### Vocabulaire d'interface
@@ -1035,7 +1255,8 @@ Réordonner les onglets : glisser-déposer. Le premier onglet s'ouvre par défau
 
 - Type : **Roadmap**
 - `Date fields` : `Start Date` en début, `End Date` en fin
-- `Zoom level` : `Year`
+- `Zoom level` : `Quarter`
+- `Markers` : `Phase`
 - Filtre : `no:parent-issue`
 - `Sort by` : `Start Date` croissant
 
@@ -1044,13 +1265,38 @@ parents. Sans lui, la Roadmap affiche parents et enfants au même niveau, sans
 indentation, ce qui devient illisible au-delà de quelques dizaines d'items. C'est
 cette limitation de GitHub qui impose deux Roadmaps là où une seule suffirait.
 
-Le zoom `Year` donne le recul nécessaire à une capture couvrant plusieurs mois.
-`Month` reste préférable pour lire le détail d'une période courte.
+**Ce filtre a un effet de bord structurel.** Une phase dont le seul item est une
+sous-issue disparaît entièrement de cette vue. Sur TaskFlow, la Phase 7 est
+invisible ici, son unique item étant l'issue n° 35 de `taskflow-api`, enfant de la
+n° 43. Ce n'est pas un réglage à corriger, c'est le prix du filtre. C'est aussi une
+raison de plus de conserver `Roadmap detail`, qui la montre.
+
+Le zoom `Quarter` couvre plusieurs mois en un écran sans écraser les barres. `Year`
+a été essayé puis abandonné : il comprime les barres au point de les rendre
+illisibles. `Month` reste préférable pour lire le détail d'une période courte.
 
 ### Vue 3 : Roadmap detail
 
-Identique à la précédente, sans le filtre `no:parent-issue`. Dupliquer la vue
-précédente par le menu de l'onglet, `Duplicate view`, évite de re-régler dates et zoom.
+- Type : **Roadmap**
+- `Date fields` : `Start Date` en début, `End Date` en fin
+- `Zoom level` : `Quarter`
+- `Markers` : `Phase`
+- `Group by` : `Phase`
+- Aucun filtre
+
+Dupliquer `Roadmap overview` par le menu de l'onglet, `Duplicate view`, évite de
+re-régler les dates et le zoom. Il reste à retirer le filtre et à poser le
+regroupement.
+
+`Group by: Phase` produit un bandeau par phase. **Groupes repliés, chaque phase se
+résume à une barre unique**, ce qui donne la frise des huit phases en une image.
+C'est la capture de portfolio retenue.
+
+**La barre de synthèse d'un groupe replié agrège les dates réelles des items, pas
+les bornes de l'itération.** La Phase 6, annoncée du 9 au 13 mai, dessine une barre
+du 6 mai au 2 juin, parce que l'issue n° 43 y est rattachée alors qu'une de ses
+sous-issues est en Phase 7. Ce n'est pas une incohérence : la Roadmap raconte le
+travail réel, le champ `Phase` range. Ne pas chercher à faire coïncider les deux.
 
 ### Vue 4 : Backlog
 
@@ -1120,6 +1366,43 @@ imbriquées et à la racine. C'est le prix de la vue d'administration, et il ne 
 paie pas sur une Table groupée, où chaque item est rangé dans le groupe de sa
 propre valeur.
 
+### Vue 8 : By repository detail
+
+- Type : **Table**
+- `Group by` : `Repository`
+- `Show hierarchy` : **activé**
+- `Sort by` : `Start Date` croissant
+- Aucun filtre
+
+Vue de capture, créée en dernier parce qu'elle ne sert à rien tant que les dates et
+la hiérarchie ne sont pas renseignées. Un groupe par dépôt, les parents avec leurs
+enfants imbriqués, l'ensemble lisible sur une seule image.
+
+**Pourquoi une Table et non le Board `By repository`.** Le Board est la vue la plus
+juste conceptuellement, mais la plus mauvaise à capturer : sur un portfolio dont
+tout l'historique est terminé, quatre colonnes de statut sur cinq sont vides et la
+cinquième tronque son contenu derrière `Load more items`. Une capture montrerait
+surtout du vide. La Table groupée n'a pas ce défaut, chaque groupe listant tous ses
+items. Les deux vues coexistent : le Board pour la lecture d'état quand plusieurs
+statuts seront peuplés, la Table pour la capture.
+
+C'est ici que `Show hierarchy` est utile sans effet de bord, contrairement à
+`By phase` : un parent et ses enfants appartiennent toujours au même dépôt, donc
+aucun groupe ne peut se vider par imbrication. Le piège décrit pour `By phase` est
+propre aux regroupements que la hiérarchie traverse.
+
+### Ordre des onglets
+
+La numérotation ci-dessus est celle de la construction, pas celle de l'affichage.
+Une fois les huit vues créées, les réordonner par glisser-déposer, le premier
+onglet étant celui qui s'ouvre par défaut :
+
+`By repository detail`, `Kanban`, `Backlog`, `By repository`, `By phase`,
+`All items`, `Roadmap overview`, `Roadmap detail`.
+
+La vue de capture est en tête parce qu'elle est celle qu'on montre. Les vues de
+travail suivent, les vues de présentation ferment la marche.
+
 ### Note sur la hiérarchie
 
 **Show hierarchy** n'existe **que sur les vues Table**. Vérifié sur les trois
@@ -1139,6 +1422,12 @@ français et anglais se remarque immédiatement sur un Project qu'on montre.
 ## 14. Configurer les dépôts
 
 À faire dans **chaque** dépôt du projet.
+
+Traiter un dépôt entièrement avant de passer au suivant, plutôt qu'une sous-section à
+la fois sur les trois. Les commandes se répètent à l'identique au nom du dépôt près,
+et une passe par sous-section multiplie les allers-retours dans l'interface sans rien
+apporter. Commencer par le dépôt le plus fourni : c'est là que les écarts se
+révèlent, et les deux suivants n'en sont que la copie.
 
 ### Labels
 
@@ -1260,6 +1549,26 @@ gh issue list --repo <owner>/<repo> --state all --limit 200 `
     --jq '.[] | select(.milestone.title != "v1.0.0") | "\(.number)|\(.milestone.title)"'
 ```
 
+### Ce qu'on renseigne sur une pull request
+
+**Assignee seul.** Ni label, ni Project, ni milestone.
+
+Ce n'est pas de la paresse, c'est une règle de non-duplication. L'issue liée porte
+déjà le label, le milestone et l'appartenance au Project. Une pull request est un
+objet de passage : elle vit quelques heures, elle est mergée, elle ne se relit
+jamais. Un second porteur de la même information ne se maintiendrait pas et finirait
+par diverger de l'issue.
+
+**Ajouter une pull request au Project a de surcroît une conséquence concrète.** Elle
+y créerait un second item, distinct de celui de l'issue, sans phase et sans dates.
+Le contrôle `no:phase` cesserait de renvoyer zéro ligne, la Roadmap afficherait deux
+barres pour un même travail, et le workflow `Pull request merged`, aujourd'hui
+inerte, cesserait de l'être. C'est aussi la raison du filtre `is:issue` sur l'auto-add,
+décrit en section 5.
+
+L'assignee, lui, est utile : il attribue la pull request dans les listes du dépôt,
+information que l'issue ne porte pas au même endroit.
+
 ### Réglages de merge
 
 `Settings` > `General` > bloc `Pull Requests`.
@@ -1286,6 +1595,11 @@ fois.
 pull requests`, **coché**. Voir section 3 pour ce que ce réglage détermine.
 
 ### Ruleset sur main
+
+**À faire en dernier, après la section 15.** Cette sous-section est placée ici par
+cohérence thématique, mais la protection de `main` bloque les commits directs, et les
+templates de la section 15 s'y ajoutent par pull request. Poser le ruleset avant
+oblige à passer par une pull request pour le tout premier fichier du dépôt.
 
 `Settings` > `Rules` > `Rulesets` > `New ruleset` > `New branch ruleset`.
 
@@ -1375,6 +1689,36 @@ d'une issue, à l'exception des commits de merge, qui ne portent aucun travail.
 gh api repos/<owner>/<repo>/contents/.github/workflows --jq ".[].name"
 gh secret list --repo <owner>/<repo>
 ```
+### La documentation transverse
+
+Un portfolio multi-dépôts pose une question que le manuel n'a pas encore tranchée :
+où vit la documentation qui ne parle d'**aucun** dépôt en particulier, comme ce
+manuel de gestion de projet.
+
+Retenu : **un dossier `docs/` dans le dépôt de déploiement**, ici `taskflow-deploy`.
+C'est le dépôt le moins spécialisé des trois, celui qui parle déjà de l'ensemble.
+Écarté : dupliquer dans les trois dépôts, ce qui garantit la divergence, et créer un
+quatrième dépôt de documentation, qui ajoute un objet à maintenir pour trois fichiers.
+
+L'arborescence est numérotée et alignée sur le plan attendu par le référentiel visé,
+ici le référentiel CDA (TP-01281), afin que le dossier serve directement de matière
+première au dossier de projet :
+
+```
+docs/
+├── README.md                       # sommaire, correspondance avec les compétences, captures
+├── 01-expression-des-besoins/      # à créer par son issue, pas d'avance
+├── 02-gestion-de-projet/
+│ └── PROJECT_MANAGEMENT.md
+└── images/
+```
+
+**Les sections non encore rédigées ne sont pas créées vides.** Un dossier sans
+contenu se lit comme une promesse non tenue. Elles sont annoncées dans le sommaire du
+`README.md`, et chacune est ajoutée par une issue dédiée qui suit le flux normal.
+
+Chaque dépôt porte dans son `README` une section pointant vers ce dossier, ce qui
+évite qu'un lecteur arrivant par `taskflow-api` ignore l'existence de la gouvernance.
 
 ---
 
@@ -1407,6 +1751,11 @@ Ces fichiers sont versionnés : ils s'ajoutent par le flux normal, une issue pui
 une branche puis une pull request. Seule exception admise, la toute première issue
 est créée sans template puisqu'ils n'existent pas encore, et son label est posé à
 la main.
+
+**Basculer l'auto-add sur le dépôt concerné avant de créer cette première issue.**
+Le workflow ne capte que les items créés après son activation : une issue créée avant
+la bascule n'entrera jamais seule dans le Project et devra y être ajoutée à la main.
+Voir section 5.
 
 ### Le front matter
 
@@ -1477,6 +1826,35 @@ une issue archivée avec des cases vides suggère un travail inachevé à qui la
 Sur une issue de rattrapage, décrivant un travail terminé depuis des mois, les
 cases sont écrites directement cochées.
 
+### Les trois groupes du template de pull request
+
+Les cases d'un template de pull request ne se cochent pas toutes au même moment,
+parce qu'elles ne disent pas la même chose. Trois régimes, à respecter sous peine de
+transformer les cases en formalité.
+
+**`Manual checks` : à la création, si et seulement si le contrôle a réellement été
+fait.** Ce sont des vérifications manuelles antérieures à l'ouverture de la pull
+request. Les cocher plus tard n'aurait pas de sens, elles portent sur un travail déjà
+accompli.
+
+**`Tests` : après le run de CI, et avant le merge.** Elles attestent d'un résultat
+qui n'existe pas encore au moment de la création. Les cocher d'avance serait une
+affirmation sur un événement futur. C'est le groupe visé par la consigne de l'étape 6
+de la section 4, « ne pas cocher les cases à ce stade ». Sur `taskflow-api`,
+Checkstyle et OWASP sont en `continue-on-error` : ouvrir leurs rapports avant de
+cocher, un CI vert ne dit rien de leur contenu.
+
+**`Verification` : à la création, comme déclaration de routage.** Elle ne dit pas
+« j'ai vérifié en production », ce qui serait faux à ce stade, mais « cette pull
+request suivra le circuit de vérification », c'est-à-dire qu'elle passera par
+`Verifying` avant `Done`. C'est une déclaration d'intention sur le flux, pas un
+constat sur le résultat. La vérification réelle, elle, se solde par le déplacement de
+la carte en `Done` et la saisie de `End Date`, pas par une case.
+
+Cette asymétrie mérite d'être écrite dans le template lui-même, en commentaire HTML
+au-dessus de chaque groupe. Sans cela, le lecteur suivant appliquera le même régime
+aux trois et cochera tout à la création.
+
 ### Créer une série d'issues en ligne de commande
 
 Pour un rattrapage ou toute série d'issues rédigées d'avance, l'interface est
@@ -1502,7 +1880,67 @@ confirment l'opération.
 
 ---
 
-## 16. Limites de plan et impossibilités
+## 16. Clore la mise en place
+
+Trois opérations referment la configuration d'un dépôt neuf. Elles ne s'exécutent
+qu'une fois les templates en place et le ruleset posé.
+
+### Le ruleset, différé
+
+Le poser maintenant, et non à la section 14 où il est décrit. Les templates viennent
+d'être commités, plus rien n'a besoin d'écrire directement sur `main`.
+
+Vérification :
+
+```powershell
+git commit --allow-empty -m "test: verify branch protection"
+git push origin main
+git reset --hard origin/main
+```
+
+Le push doit être rejeté avec `GH013: Repository rule violations found`.
+
+### Le tag et la release
+
+Décrits en section 7. Ordre imposé : le tag d'abord, la release ensuite avec
+`--verify-tag`, la fermeture du milestone en dernier. Vérifier l'adresse e-mail de la
+configuration Git avant de poser le tag, l'attribution GitHub en dépend.
+
+### La recette
+
+Aucun relevé ne prouve qu'une configuration fonctionne. Le seul test réel est un
+cycle complet, du flux décrit en section 4, sur une issue véritable.
+
+Prendre une petite issue réelle plutôt qu'une issue jetable : la recette laisse une
+trace publique dans le dépôt, autant qu'elle porte du travail. Sur TaskFlow, ce sont
+les trois issues de documentation `deploy#5`, `ui#33` et `api#44` qui ont servi de
+recette, chacune avec sa pull request, en août 2026.
+
+Cinq points de contrôle, dans l'ordre où ils se produisent :
+
+1. À la création de l'issue, elle apparaît seule dans le Project, statut `Backlog`.
+2. Le bouton `Create a branch` de la section Development affiche, dans la timeline de
+   l'issue, la mention d'une pull request qui fermera cette issue.
+3. À l'ouverture de la pull request, la carte passe seule en `In Review`.
+4. Au squash merge, l'issue se ferme, la branche distante disparaît, et la carte
+   passe seule en `Verifying`.
+5. Après vérification, le passage manuel en `Done` tient du premier coup, sans
+   rebond, l'issue étant déjà fermée.
+
+Un écart sur l'un de ces cinq points désigne un workflow mal configuré, pas une
+erreur de manipulation. Le point 1 met en cause l'auto-add ou `Item added to
+project`, le point 3 `Pull request linked to issue`, le point 4 le réglage
+`Auto-close issues with merged linked pull requests` du dépôt ou `Item closed`.
+
+**Contrôle de fin de configuration : la colonne `Verifying` du Kanban doit être à 0.**
+
+Répéter la recette sur chaque dépôt. Les workflows sont portés par le Project et donc
+communs, mais l'auto-add ne couvre qu'un dépôt à la fois et les réglages de fermeture
+automatique sont propres à chaque dépôt.
+
+---
+
+## 17. Limites de plan et impossibilités
 
 ### Workflows auto-add
 
@@ -1559,8 +1997,12 @@ approvals` doit rester à zéro dans le ruleset.
   `gh project field-list` ne les renvoie pas.
 - Les **détails d'un champ Iteration** : `field-list` ne donne que l'identifiant,
   le nom et le type. Passer par GraphQL (voir section 10).
-- Les **breaks** d'un champ Iteration : invisibles même en GraphQL.
-- Les **vues** et leur configuration.
+- Les **breaks** d'un champ Iteration : invisibles même en GraphQL. Le relevé se fait
+  à l'œil, et **sur la Roadmap et non dans `Settings`** : l'écran de réglages sépare
+  les itérations en onglets `Active` et `Completed`, et un break dont les deux
+  voisines se répartissent de part et d'autre de cette coupure n'y apparaît pas. Voir
+  section 11.
+  - Les **vues** et leur configuration.
 - La **création d'un lien parent-enfant** entre issues : aucune sous-commande
   `gh` ne le fait. Le rattachement passe obligatoirement par l'interface.
 - Le réglage **`Auto-close issues with merged linked pull requests`** et le
@@ -1568,7 +2010,7 @@ approvals` doit rester à zéro dans le ruleset.
 
 ---
 
-## 17. Ce qui a été écarté et pourquoi
+## 18. Ce qui a été écarté et pourquoi
 
 Cette section existe pour ne pas refaire deux fois la même analyse.
 
@@ -1669,11 +2111,19 @@ sommaire automatique de l'issue.
 Retenu à la place : une section `## Related PRs` de niveau 2, une ligne par pull
 request, plus un rappel `(PR #N)` en fin de la ligne de commit correspondante.
 
-### Les releases GitHub
+### La génération automatique des notes de release
 
-**Reportées.** Un tag n'est pas une release. Publier trois releases `v1.0.0` avec
-des notes générées depuis les issues de leur milestone rendrait les pages d'accueil
-des dépôts nettement plus parlantes. À traiter une fois les tags stabilisés.
+**Écartée.** Le bouton `Generate release notes` de GitHub, et son équivalent
+`--generate-notes` en ligne de commande, fabriquent une liste des pull requests
+mergées depuis la release précédente.
+
+Écarté pour deux raisons. La liste est une énumération de titres techniques, qui
+décrit des changements de code et non ce qui a été livré. Et sur `taskflow-ui`, où
+environ quatre-vingts commits sont arrivés directement sur `main` avant l'existence
+du pipeline, elle ne restituerait presque rien du contenu réel de la version.
+
+Retenu à la place : des notes rédigées à la main depuis les issues du milestone, avec
+un lien de pied vers ce milestone. Voir section 7.
 
 ---
 
