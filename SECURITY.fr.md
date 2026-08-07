@@ -144,5 +144,5 @@ vraies données utilisateurs. Le délai de réponse peut varier.
 
 - [taskflow-api](https://github.com/mehdi-rochereau/taskflow-api) — API REST Spring Boot
 - [taskflow-ui](https://github.com/mehdi-rochereau/taskflow-ui) — Frontend Angular
-- [taskflow-api/SECURITY.md](https://github.com/mehdi-rochereau/taskflow-api/blob/main/SECURITY.md) — Politique de sécurité API
-- [taskflow-ui/SECURITY.md](https://github.com/mehdi-rochereau/taskflow-ui/blob/main/SECURITY.md) — Politique de sécurité frontend
+- [taskflow-api/SECURITY.fr.md](https://github.com/mehdi-rochereau/taskflow-api/blob/main/SECURITY.fr.md) — Politique de sécurité API
+- [taskflow-ui/SECURITY.fr.md](https://github.com/mehdi-rochereau/taskflow-ui/blob/main/SECURITY.fr.md) — Politique de sécurité frontend

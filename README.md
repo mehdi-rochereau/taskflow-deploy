@@ -53,10 +53,18 @@ taskflow-deploy/
 ├── docker-compose.yml     # Docker Compose stack definition
 ├── .env.example           # Environment variables template
 ├── .gitignore             # Excludes .env and secrets
-├── scripts/
-│   ├── deploy.sh          # Production deployment script
-│   └── .gitattributes     # Line ending configuration
-└── README.md
+├── README.md              # This file
+├── README.fr.md           # French version
+├── SECURITY.md            # Infrastructure security policy
+├── SECURITY.fr.md         # French version
+├── .github/               # Issue and pull request templates
+├── docs/                  # Cross-repository project documentation
+│   ├── README.md
+│   ├── 02-gestion-de-projet/
+│   └── images/
+└── scripts/
+    ├── deploy.sh          # Production deployment script
+    └── .gitattributes     # Line ending configuration
 ```
 
 ---

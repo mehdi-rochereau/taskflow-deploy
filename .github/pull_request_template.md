@@ -2,9 +2,9 @@
 
 Refs #
 
-<!-- Replace "Refs" with "Closes" ONLY if this pull request fully
-     completes the issue and there is nothing to verify in production.
-     Otherwise leave "Refs". -->
+<!-- Keep "Refs". The keyword has no effect here: the branch was created
+     from the issue, and that link closes the issue on merge whatever this
+     line says. "Refs" is the project convention. -->
 
 ## Changes
 

@@ -53,10 +53,18 @@ taskflow-deploy/
 ├── docker-compose.yml     # Définition de la stack Docker Compose
 ├── .env.example           # Modèle de variables d'environnement
 ├── .gitignore             # Exclut .env et les secrets
-├── scripts/
-│   ├── deploy.sh          # Script de déploiement en production
-│   └── .gitattributes     # Configuration des fins de ligne
-└── README.md
+├── README.md              # Version anglaise
+├── README.fr.md           # Ce fichier
+├── SECURITY.md            # Politique de sécurité infrastructure
+├── SECURITY.fr.md         # Version française
+├── .github/               # Templates d'issue et de pull request
+├── docs/                  # Documentation transverse du projet
+│   ├── README.md
+│   ├── 02-gestion-de-projet/
+│   └── images/
+└── scripts/
+    ├── deploy.sh          # Script de déploiement en production
+    └── .gitattributes     # Configuration des fins de ligne
 ```
 
 ---
@@ -221,8 +229,8 @@ openssl rand -hex 64
 - Nginx applique la redirection HTTP → HTTPS
 
 Pour les détails de sécurité au niveau applicatif, voir :
-- [taskflow-api/SECURITY.md](https://github.com/mehdi-rochereau/taskflow-api/blob/main/SECURITY.md)
-- [taskflow-ui/SECURITY.md](https://github.com/mehdi-rochereau/taskflow-ui/blob/main/SECURITY.md)
+- [taskflow-api/SECURITY.fr.md](https://github.com/mehdi-rochereau/taskflow-api/blob/main/SECURITY.fr.md)
+- [taskflow-ui/SECURITY.fr.md](https://github.com/mehdi-rochereau/taskflow-ui/blob/main/SECURITY.fr.md)
 
 ---
 
