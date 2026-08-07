@@ -40,6 +40,9 @@ sécurité avec Docker, Nginx, Let's Encrypt et Ubuntu 24.04.
   `taskflow` dédié non-root. Le conteneur `taskflow-ui` tourne sous `nginx`.
 - **Réseau interne** — Toute communication inter-conteneurs utilise un réseau bridge
   Docker privé (`taskflow-network`). MySQL n'est pas exposé au réseau hôte.
+- **Publication des ports sur la boucle locale** — Les ports des conteneurs ne sont
+  publiés que sur `127.0.0.1`. Nginx, qui tourne sur l'hôte, les atteint par la
+  boucle locale ; ils ne sont pas joignables depuis l'extérieur du VPS.
 - **Registry privé** — Les images Docker sont stockées de manière privée sur GitHub
   Container Registry (ghcr.io) et nécessitent une authentification pour être tirées.
 - **Secrets en lecture restreinte** — Le fichier `.env` contenant les secrets de

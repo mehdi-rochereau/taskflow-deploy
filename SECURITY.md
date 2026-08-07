@@ -39,6 +39,9 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   non-root `taskflow` user. The `taskflow-ui` container runs as `nginx`.
 - **Internal network** — All inter-container communication uses a private Docker
   bridge network (`taskflow-network`). MySQL is not exposed to the host network.
+- **Loopback-only port publishing** — Container ports are published on `127.0.0.1`
+  only. Nginx, running on the host, proxies to them over the loopback interface;
+  they are not reachable from outside the VPS.
 - **Private registry** — Docker images are stored privately on GitHub Container
   Registry (ghcr.io) and require authentication to pull.
 - **Read-only secrets** — The `.env` file containing production secrets has
