@@ -1,8 +1,8 @@
 # Gestion de projet TaskFlow
 
 > Document de référence pour la gestion des trois dépôts TaskFlow via GitHub Projects.
-> Emplacement recommandé : `taskflow-deploy/PROJECT_MANAGEMENT.md`
-> Dernière mise à jour : 6 août 2026, après la session 6
+> Emplacement : `taskflow-deploy/docs/02-gestion-de-projet/PROJECT_MANAGEMENT.md`
+> Dernière mise à jour : 7 août 2026, après la session 9
 
 Ce document a deux parties indépendantes.
 
@@ -299,7 +299,10 @@ correspondance entre la branche locale et la branche distante. Les `git push` et
 indiquer l'avance ou le retard sur la distante.
 
 Ouvrir la pull request sur GitHub. La description est pré-remplie par le template.
-Compléter le numéro d'issue après `Refs #`, lister les changements.
+Compléter le numéro d'issue après `Refs #`, lister les changements. Ne pas
+remplacer `Refs` par `Closes` : la fermeture de l'issue au merge vient du lien créé
+par le bouton `Create a branch`, pas du mot-clé, et le template ne propose plus cette
+substitution depuis la session 8. Voir section 3.
 
 **Le titre de la pull request doit respecter Conventional Commits**, puisqu'il
 devient le message du commit unique sur `main` après le squash merge.
@@ -801,11 +804,32 @@ fermeture, ce qui évite d'abaisser durablement la politique du poste.
 Le script `snapshot-github-project.ps1`, versionné dans le dépôt de déploiement,
 produit un dossier daté contenant l'état du Project et des trois dépôts : champs,
 items, issues, pull requests, milestones, labels, réglages, rulesets, templates,
-secrets et tags. Il génère aussi un fichier `a-remplir-manuellement.txt` listant les
-seuls éléments qu'aucune API n'expose, à vérifier à l'œil dans l'interface.
+secrets et tags. C'est l'outil de contrôle de tout ce qui est décrit ci-dessous.
+Le lancer à la fin de chaque session, et confronter sa sortie à
+`etat-github-project.md`.
 
-C'est l'outil de contrôle de tout ce qui est décrit ci-dessous. Le lancer après
-chaque session de configuration, et confronter sa sortie à `etat-github-project.md`.
+Il dépose à côté un second fichier, `a-remplir-manuellement.txt`, qui n'est pas un
+relevé : c'est un questionnaire. Onze questions fermées, réparties en huit points,
+portant exclusivement sur ce qu'aucune API n'expose. Les workflows intégrés, la
+configuration des huit vues et les champs affichés sur les cartes du Kanban, les
+breaks et le compte des itérations du champ `Phase`, l'absence de groupe `No Phase`,
+le réglage `Auto-close issues with merged linked pull requests`, le réglage
+`Allow auto-merge`, l'identité Git locale de chaque clone, et la valeur de
+`required_approving_review_count` dans les rulesets. Chaque question se répond par
+oui ou par non, avec une ligne `Ecart` à remplir quand la réponse est non.
+
+**Ce questionnaire ne se remplit qu'après une session ayant modifié un réglage.**
+C'est la règle, et elle vaut d'être tenue. Une session qui ne fait que créer des
+issues et fusionner des pull requests ne peut rien avoir cassé dans les workflows,
+les vues ou les rulesets : le remplir malgré tout revient à recopier onze fois la
+même réponse, ce qui n'est plus un contrôle mais un rituel, et un rituel finit
+toujours par se remplir sans regarder. Le relevé automatique, lui, se lance dans
+tous les cas : il ne coûte qu'une commande et il date l'état.
+
+Deux éléments en sont volontairement absents. Le dépôt visé par l'auto-add, qui
+change à chaque série de créations d'issues et se vérifie au moment où l'on en a
+besoin, pas après coup. Et la colonne `Verifying` du Kanban, dont le contrôle à zéro
+est un point de fin de session décrit en section 3, pas une donnée de configuration.
 
 ---
 
@@ -1807,6 +1831,24 @@ case demande de l'avoir regardé, pas qu'il soit parfait.
 Sur un dépôt sans pipeline, remplacer la section `Tests` par une section
 `Manual checks` à lignes libres. Un template demandant de cocher des contrôles
 inexistants finit par n'être plus lu du tout.
+
+### La ligne `Refs` ne porte aucun commentaire de mot-clé
+
+Le template ouvre sur une ligne `Refs #` à compléter avec le numéro d'issue.
+**Aucun commentaire HTML n'invite à la remplacer par `Closes`, `Fixes` ou
+`Resolves`.** Un tel commentaire a existé dans les trois dépôts et a été supprimé
+en session 8.
+
+Il était faux, et pas seulement inutile. Il laissait croire que le mot-clé décide de
+la fermeture de l'issue, alors que c'est le lien créé par le bouton `Create a branch`
+qui la ferme au merge, quel que soit le texte de la description. Voir section 3. Un
+lecteur suivant la consigne aurait conclu, en voyant l'issue se fermer, que le
+mot-clé avait agi, et aurait propagé l'erreur.
+
+`Refs` est donc le mot retenu, et c'est un choix de vocabulaire, pas de mécanisme :
+il dit ce qu'il fait, référencer, sans prétendre à un effet qu'il n'a pas. Le seul
+réglage qui commande réellement la fermeture est
+`Auto-close issues with merged linked pull requests`, décrit en section 3.
 
 ### Les cases à cocher
 
