@@ -16,13 +16,13 @@ sections listed with content below exist at this stage.
 
 | Section | Competency | Status |
 |---------|------------|--------|
-| `01-expression-des-besoins/` — objectives, scope, actors, user stories | CP5 | Planned |
+| `01-expression-des-besoins/` — [framing, objectives, scope, stakeholders, requirement prioritisation](01-expression-des-besoins/EXPRESSION_DES_BESOINS.md) | CP5 | **Published** |
 | `02-gestion-de-projet/` — project management manual, planning, quality | CP4 | **Published** |
 | `03-conception/` — architecture, mockups, UML, data model | CP5, CP6, CP7 | Planned |
 | `04-securite/` — security strategy per layer, DICP, watch | Transverse | Planned |
 | `05-tests/` — test plan, test data sets | CP9 | Planned |
 | `06-deploiement/` — deployment procedure, environments, CI/CD | CP10, CP11 | Planned |
-| `images/` — GitHub Project view screenshots | — | **Published** |
+| `images/` — screenshots and diagrams | — | **Published** |
 
 ## Project management at a glance
 

@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 890" width="820" height="890" role="img" aria-labelledby="titre description">
+  <title id="titre">Diagramme de Kano des besoins de TaskFlow</title>
+  <desc id="description">Douze besoins livrés, sept besoins reportés et deux options de conception écartées, positionnés sur les cinq courbes du modèle de Kano : obligatoire, proportionnel, attractif, indifférent et rebours.</desc>
+  <style>
+    .fond   { fill: #f6f8fa; }
+    .cadre  { fill: none; stroke: #d0d7de; stroke-width: 1; }
+    .bande  { fill: #e6ebf1; }
+    .axe    { stroke: #57606a; stroke-width: 1.5; }
+    .grille { stroke: #d0d7de; stroke-width: 1; stroke-dasharray: 4 4; }
+    .txt    { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #1f2328; }
+    .axeTxt { font-size: 14px; font-weight: 600; }
+    .borne  { font-size: 12px; fill: #57606a; }
+    .bandeTxt { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #57606a; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
+    .lgd    { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #1f2328; font-size: 13px; }
+    .courbe { fill: none; stroke-width: 3; stroke-linecap: round; }
+    .obl { stroke: #bc4c00; } .pro { stroke: #0969da; } .att { stroke: #1a7f37; }
+    .ind { stroke: #6e7781; stroke-dasharray: 7 5; }
+    .reb { stroke: #8250df; stroke-dasharray: 10 6; }
+    .etq    { font-size: 14px; font-weight: 600; }
+    .cObl { fill: #bc4c00; } .cPro { fill: #0969da; } .cAtt { fill: #1a7f37; }
+    .cInd { fill: #6e7781; } .cReb { fill: #8250df; }
+    .pastille    { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #ffffff; font-size: 12px; font-weight: 700; }
+    .pastilleR   { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 700; }
+    .pastilleLgd { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #ffffff; font-size: 11px; font-weight: 700; }
+    .pastilleLgdR{ font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 700; }
+  </style>
+  <rect class="fond" x="0" y="0" width="820" height="890" rx="6"/>
+  <rect class="cadre" x="0.5" y="0.5" width="819" height="889" rx="6"/>
+
+  <rect class="bande" x="140" y="46" width="212" height="406" rx="4"/>
+  <rect class="bande" x="470" y="46" width="230" height="406" rx="4"/>
+  <text class="bandeTxt" x="246" y="66" text-anchor="middle">NON RÉALISÉ</text>
+  <text class="bandeTxt" x="585" y="66" text-anchor="middle">LIVRÉ</text>
+
+  <line class="axe" x1="110" y1="46" x2="110" y2="452"/>
+  <line class="axe" x1="92"  y1="249" x2="700" y2="249"/>
+  <polygon points="110,38 105,50 115,50" fill="#57606a"/>
+  <polygon points="706,249 694,244 694,254" fill="#57606a"/>
+  <polygon points="110,460 105,448 115,448" fill="#57606a"/>
+
+  <text class="txt axeTxt" x="122" y="36">Satisfaction</text>
+  <text class="txt axeTxt" x="122" y="472">Mécontentement</text>
+  <line class="grille" x1="118" y1="494" x2="700" y2="494"/>
+  <text class="txt borne" x="118" y="512">Besoin non satisfait</text>
+  <text class="txt borne" x="700" y="512" text-anchor="end">Besoin pleinement satisfait</text>
+
+  <line class="courbe ind" x1="116" y1="249" x2="676" y2="249"/>
+  <line class="courbe reb" x1="118" y1="96" x2="676" y2="430"/>
+  <path class="courbe obl" d="M 118 440 C 205 424 292 372 378 330 C 468 292 572 278 676 274"/>
+  <line class="courbe pro" x1="118" y1="436" x2="676" y2="78"/>
+  <path class="courbe att" d="M 118 246 C 260 240 340 212 430 168 C 520 124 612 68 676 34"/>
+
+  <circle cx="500" cy="293" r="11" fill="#bc4c00"/>
+  <text class="pastille" x="500" y="297" text-anchor="middle">1</text>
+  <circle cx="560" cy="283" r="11" fill="#bc4c00"/>
+  <text class="pastille" x="560" y="287" text-anchor="middle">2</text>
+  <circle cx="620" cy="277" r="11" fill="#bc4c00"/>
+  <text class="pastille" x="620" y="281" text-anchor="middle">3</text>
+  <circle cx="676" cy="274" r="11" fill="#bc4c00"/>
+  <text class="pastille" x="676" y="278" text-anchor="middle">4</text>
+  <circle cx="496" cy="193" r="11" fill="#0969da"/>
+  <text class="pastille" x="496" y="197" text-anchor="middle">5</text>
+  <circle cx="566" cy="149" r="11" fill="#0969da"/>
+  <text class="pastille" x="566" y="153" text-anchor="middle">6</text>
+  <circle cx="636" cy="104" r="11" fill="#0969da"/>
+  <text class="pastille" x="636" y="108" text-anchor="middle">7</text>
+  <circle cx="524" cy="119" r="11" fill="#1a7f37"/>
+  <text class="pastille" x="524" y="123" text-anchor="middle">8</text>
+  <circle cx="592" cy="81" r="11" fill="#1a7f37"/>
+  <text class="pastille" x="592" y="85" text-anchor="middle">9</text>
+  <circle cx="644" cy="51" r="11" fill="#1a7f37"/>
+  <text class="pastille" x="644" y="55" text-anchor="middle">10</text>
+  <circle cx="676" cy="34" r="11" fill="#1a7f37"/>
+  <text class="pastille" x="676" y="38" text-anchor="middle">11</text>
+  <circle cx="540" cy="249" r="11" fill="#6e7781"/>
+  <text class="pastille" x="540" y="253" text-anchor="middle">12</text>
+  <circle cx="180" cy="242" r="11" fill="#f6f8fa" stroke="#1a7f37" stroke-width="2.5"/>
+  <text class="pastilleR" x="180" y="246" text-anchor="middle" fill="#1a7f37">13</text>
+  <circle cx="258" cy="230" r="11" fill="#f6f8fa" stroke="#1a7f37" stroke-width="2.5"/>
+  <text class="pastilleR" x="258" y="234" text-anchor="middle" fill="#1a7f37">14</text>
+  <circle cx="214" cy="374" r="11" fill="#f6f8fa" stroke="#0969da" stroke-width="2.5"/>
+  <text class="pastilleR" x="214" y="378" text-anchor="middle" fill="#0969da">15</text>
+  <circle cx="300" cy="319" r="11" fill="#f6f8fa" stroke="#0969da" stroke-width="2.5"/>
+  <text class="pastilleR" x="300" y="323" text-anchor="middle" fill="#0969da">16</text>
+  <circle cx="330" cy="210" r="11" fill="#f6f8fa" stroke="#1a7f37" stroke-width="2.5"/>
+  <text class="pastilleR" x="330" y="214" text-anchor="middle" fill="#1a7f37">18</text>
+  <circle cx="232" cy="249" r="11" fill="#f6f8fa" stroke="#6e7781" stroke-width="2.5"/>
+  <text class="pastilleR" x="232" y="253" text-anchor="middle" fill="#6e7781">20</text>
+  <circle cx="210" cy="412" r="11" fill="#f6f8fa" stroke="#bc4c00" stroke-width="2.5"/>
+  <text class="pastilleR" x="210" y="416" text-anchor="middle" fill="#bc4c00">21</text>
+  <circle cx="252" cy="176" r="11" fill="#f6f8fa" stroke="#8250df" stroke-width="2.5" stroke-dasharray="3 3"/>
+  <text class="pastilleR" x="252" y="180" text-anchor="middle" fill="#8250df">17</text>
+  <circle cx="172" cy="128" r="11" fill="#f6f8fa" stroke="#8250df" stroke-width="2.5" stroke-dasharray="3 3"/>
+  <text class="pastilleR" x="172" y="132" text-anchor="middle" fill="#8250df">19</text>
+
+  <text class="txt etq cAtt" x="800" y="40"  text-anchor="end">Attractif</text>
+  <text class="txt etq cPro" x="800" y="82"  text-anchor="end">Proportionnel</text>
+  <text class="txt etq cInd" x="800" y="216" text-anchor="end">Indifférent</text>
+  <text class="txt etq cObl" x="800" y="316" text-anchor="end">Obligatoire</text>
+  <text class="txt etq cReb" x="800" y="436" text-anchor="end">Rebours</text>
+  <line class="grille" x1="682" y1="249" x2="720" y2="222"/>
+  <line class="grille" x1="682" y1="274" x2="720" y2="304"/>
+
+  <line class="grille" x1="40" y1="546" x2="780" y2="546"/>
+  <circle cx="60" cy="572" r="9" fill="#57606a"/>
+  <text class="lgd" x="76" y="576">Livré</text>
+  <circle cx="180" cy="572" r="9" fill="#f6f8fa" stroke="#57606a" stroke-width="2"/>
+  <text class="lgd" x="196" y="576">Reporté</text>
+  <circle cx="320" cy="572" r="9" fill="#f6f8fa" stroke="#57606a" stroke-width="2" stroke-dasharray="3 3"/>
+  <text class="lgd" x="336" y="576">Option de conception écartée</text>
+
+  <circle cx="60" cy="602" r="9" fill="#bc4c00"/>
+  <text class="pastilleLgd" x="60" y="605" text-anchor="middle">1</text>
+  <text class="lgd" x="76" y="606">Authentification et gestion de session</text>
+  <circle cx="60" cy="625" r="9" fill="#bc4c00"/>
+  <text class="pastilleLgd" x="60" y="628" text-anchor="middle">2</text>
+  <text class="lgd" x="76" y="629">Cloisonnement des données par utilisateur</text>
+  <circle cx="60" cy="648" r="9" fill="#bc4c00"/>
+  <text class="pastilleLgd" x="60" y="651" text-anchor="middle">3</text>
+  <text class="lgd" x="76" y="652">Création et suivi des projets et des tâches</text>
+  <circle cx="60" cy="671" r="9" fill="#bc4c00"/>
+  <text class="pastilleLgd" x="60" y="674" text-anchor="middle">4</text>
+  <text class="lgd" x="76" y="675">Fiabilité et gestion des erreurs</text>
+  <circle cx="60" cy="694" r="9" fill="#0969da"/>
+  <text class="pastilleLgd" x="60" y="697" text-anchor="middle">5</text>
+  <text class="lgd" x="76" y="698">Filtrage des tâches par statut et priorité</text>
+  <circle cx="60" cy="717" r="9" fill="#0969da"/>
+  <text class="pastilleLgd" x="60" y="720" text-anchor="middle">6</text>
+  <text class="lgd" x="76" y="721">Recherche dans les projets</text>
+  <circle cx="60" cy="740" r="9" fill="#0969da"/>
+  <text class="pastilleLgd" x="60" y="743" text-anchor="middle">7</text>
+  <text class="lgd" x="76" y="744">Indicateur d'avancement par projet</text>
+  <circle cx="60" cy="763" r="9" fill="#1a7f37"/>
+  <text class="pastilleLgd" x="60" y="766" text-anchor="middle">8</text>
+  <text class="lgd" x="76" y="767">Renouvellement silencieux de la session</text>
+  <circle cx="60" cy="786" r="9" fill="#1a7f37"/>
+  <text class="pastilleLgd" x="60" y="789" text-anchor="middle">9</text>
+  <text class="lgd" x="76" y="790">Documentation interactive de l'API</text>
+  <circle cx="60" cy="809" r="9" fill="#1a7f37"/>
+  <text class="pastilleLgd" x="60" y="812" text-anchor="middle">10</text>
+  <text class="lgd" x="76" y="813">Page d'accueil publique</text>
+  <circle cx="60" cy="832" r="9" fill="#1a7f37"/>
+  <text class="pastilleLgd" x="60" y="835" text-anchor="middle">11</text>
+  <text class="lgd" x="76" y="836">Messages d'erreur bilingues</text>
+  <circle cx="430" cy="602" r="9" fill="#6e7781"/>
+  <text class="pastilleLgd" x="430" y="605" text-anchor="middle">12</text>
+  <text class="lgd" x="446" y="606">Chaîne d'intégration et de déploiement</text>
+  <circle cx="430" cy="625" r="9" fill="#f6f8fa" stroke="#1a7f37" stroke-width="2"/>
+  <text class="pastilleLgdR" x="430" y="628" text-anchor="middle" fill="#1a7f37">13</text>
+  <text class="lgd" x="446" y="629">Connexion par fournisseur tiers</text>
+  <circle cx="430" cy="648" r="9" fill="#f6f8fa" stroke="#1a7f37" stroke-width="2"/>
+  <text class="pastilleLgdR" x="430" y="651" text-anchor="middle" fill="#1a7f37">14</text>
+  <text class="lgd" x="446" y="652">Partage de projet</text>
+  <circle cx="430" cy="671" r="9" fill="#f6f8fa" stroke="#0969da" stroke-width="2"/>
+  <text class="pastilleLgdR" x="430" y="674" text-anchor="middle" fill="#0969da">15</text>
+  <text class="lgd" x="446" y="675">Pièces jointes sur les tâches</text>
+  <circle cx="430" cy="694" r="9" fill="#f6f8fa" stroke="#0969da" stroke-width="2"/>
+  <text class="pastilleLgdR" x="430" y="697" text-anchor="middle" fill="#0969da">16</text>
+  <text class="lgd" x="446" y="698">Notifications, canal et activation au choix</text>
+  <circle cx="430" cy="717" r="9" fill="#f6f8fa" stroke="#8250df" stroke-width="2" stroke-dasharray="3 3"/>
+  <text class="pastilleLgdR" x="430" y="720" text-anchor="middle" fill="#8250df">17</text>
+  <text class="lgd" x="446" y="721">Notifications imposées par défaut</text>
+  <circle cx="430" cy="740" r="9" fill="#f6f8fa" stroke="#1a7f37" stroke-width="2"/>
+  <text class="pastilleLgdR" x="430" y="743" text-anchor="middle" fill="#1a7f37">18</text>
+  <text class="lgd" x="446" y="744">Double authentification, au choix</text>
+  <circle cx="430" cy="763" r="9" fill="#f6f8fa" stroke="#8250df" stroke-width="2" stroke-dasharray="3 3"/>
+  <text class="pastilleLgdR" x="430" y="766" text-anchor="middle" fill="#8250df">19</text>
+  <text class="lgd" x="446" y="767">Double authentification imposée</text>
+  <circle cx="430" cy="786" r="9" fill="#f6f8fa" stroke="#6e7781" stroke-width="2"/>
+  <text class="pastilleLgdR" x="430" y="789" text-anchor="middle" fill="#6e7781">20</text>
+  <text class="lgd" x="446" y="790">Confirmation d'adresse à l'inscription</text>
+  <circle cx="430" cy="809" r="9" fill="#f6f8fa" stroke="#bc4c00" stroke-width="2"/>
+  <text class="pastilleLgdR" x="430" y="812" text-anchor="middle" fill="#bc4c00">21</text>
+  <text class="lgd" x="446" y="813">Réinitialisation de mot de passe</text>
+
+  <text class="txt borne" x="410" y="872" text-anchor="middle">TaskFlow, classification des besoins selon le modèle de Kano</text>
+</svg>

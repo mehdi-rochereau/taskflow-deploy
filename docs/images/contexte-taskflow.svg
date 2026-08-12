@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560" width="820" height="560" role="img" aria-labelledby="titre description">
+  <title id="titre">Vue de contexte de TaskFlow</title>
+  <desc id="description">Les deux profils d'utilisateur, les trois composants de TaskFlow et les services extérieurs dont le produit dépend, avec les échanges qui les relient.</desc>
+
+  <style>
+    .fond    { fill: #f6f8fa; }
+    .cadre   { fill: none; stroke: #d0d7de; stroke-width: 1; }
+    .zone    { fill: #eef2f6; stroke: #afb8c1; stroke-width: 1.5; stroke-dasharray: 8 5; }
+    .acteur  { fill: #fff8f0; stroke: #bc4c00; stroke-width: 2; }
+    .compo   { fill: #ffffff; stroke: #0969da; stroke-width: 2; }
+    .infra   { fill: #ffffff; stroke: #6e7781; stroke-width: 2; }
+    .ext     { fill: #ffffff; stroke: #8250df; stroke-width: 2; stroke-dasharray: 5 4; }
+    .flux    { fill: none; stroke: #57606a; stroke-width: 1.8; }
+    .txt     { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #1f2328; }
+    .titre   { font-size: 14px; font-weight: 700; }
+    .sous    { font-size: 11px; fill: #57606a; }
+    .zoneTxt { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #57606a; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
+    .fluxTxt { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #57606a; font-size: 11px; }
+    .lgd     { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #1f2328; font-size: 12px; }
+  </style>
+
+  <defs>
+    <marker id="fleche" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect class="fond" x="0" y="0" width="820" height="560" rx="6"/>
+  <rect class="cadre" x="0.5" y="0.5" width="819" height="559" rx="6"/>
+
+  <!-- Zone produit -->
+  <rect class="zone" x="236" y="58" width="352" height="368" rx="8"/>
+  <text class="zoneTxt" x="412" y="80" text-anchor="middle">TASKFLOW, SERVEUR UNIQUE</text>
+
+  <!-- Acteurs -->
+  <rect class="acteur" x="40" y="118" width="150" height="62" rx="8"/>
+  <text class="txt titre" x="115" y="144" text-anchor="middle">Visiteur</text>
+  <text class="txt sous" x="115" y="163" text-anchor="middle">non authentifié</text>
+
+  <rect class="acteur" x="40" y="228" width="150" height="62" rx="8"/>
+  <text class="txt titre" x="115" y="252" text-anchor="middle">Utilisateur</text>
+  <text class="txt sous" x="115" y="271" text-anchor="middle">authentifié</text>
+
+  <!-- Reverse proxy -->
+  <rect class="infra" x="272" y="118" width="120" height="172" rx="8"/>
+  <text class="txt titre" x="332" y="192" text-anchor="middle">Nginx</text>
+  <text class="txt sous" x="332" y="210" text-anchor="middle">reverse proxy</text>
+  <text class="txt sous" x="332" y="226" text-anchor="middle">TLS, hors conteneur</text>
+
+  <!-- UI -->
+  <rect class="compo" x="432" y="106" width="132" height="66" rx="8"/>
+  <text class="txt titre" x="498" y="132" text-anchor="middle">taskflow-ui</text>
+  <text class="txt sous" x="498" y="151" text-anchor="middle">Angular</text>
+
+  <!-- API -->
+  <rect class="compo" x="432" y="216" width="132" height="66" rx="8"/>
+  <text class="txt titre" x="498" y="242" text-anchor="middle">taskflow-api</text>
+  <text class="txt sous" x="498" y="261" text-anchor="middle">Spring Boot</text>
+
+  <!-- BDD -->
+  <rect class="infra" x="432" y="330" width="132" height="66" rx="8"/>
+  <text class="txt titre" x="498" y="356" text-anchor="middle">MySQL</text>
+  <text class="txt sous" x="498" y="375" text-anchor="middle">données persistées</text>
+
+  <!-- Services externes -->
+  <rect class="ext" x="640" y="106" width="140" height="66" rx="8"/>
+  <text class="txt titre" x="710" y="132" text-anchor="middle">Registre</text>
+  <text class="txt sous" x="710" y="151" text-anchor="middle">images de conteneur</text>
+
+  <rect class="ext" x="640" y="216" width="140" height="66" rx="8"/>
+  <text class="txt titre" x="710" y="242" text-anchor="middle">Autorité</text>
+  <text class="txt sous" x="710" y="261" text-anchor="middle">certificats TLS</text>
+
+  <rect class="ext" x="640" y="330" width="140" height="66" rx="8"/>
+  <text class="txt titre" x="710" y="352" text-anchor="middle">Envoi de courriels</text>
+  <text class="txt sous" x="710" y="371" text-anchor="middle">non mis en place</text>
+
+  <!-- Flux acteurs -> proxy -->
+  <path class="flux" d="M 190 149 L 272 149" marker-end="url(#fleche)"/>
+  <path class="flux" d="M 190 259 L 272 259" marker-end="url(#fleche)"/>
+  <text class="fluxTxt" x="231" y="141" text-anchor="middle">HTTPS</text>
+  <text class="fluxTxt" x="231" y="251" text-anchor="middle">HTTPS</text>
+
+  <!-- proxy -> ui / api -->
+  <path class="flux" d="M 392 139 L 432 139" marker-end="url(#fleche)"/>
+  <path class="flux" d="M 392 249 L 432 249" marker-end="url(#fleche)"/>
+
+  <!-- ui -> api -->
+  <path class="flux" d="M 498 172 L 498 216" marker-end="url(#fleche)"/>
+  <text class="fluxTxt" x="506" y="198">REST, cookies</text>
+
+  <!-- api -> bdd -->
+  <path class="flux" d="M 498 282 L 498 330" marker-end="url(#fleche)"/>
+  <text class="fluxTxt" x="508" y="310">JPA</text>
+
+  <!-- externes -->
+  <path class="flux" d="M 588 96 L 614 96 L 614 129 L 640 129" marker-end="url(#fleche)" marker-start="url(#fleche)" stroke-dasharray="4 4"/>
+  <path class="flux" d="M 332 290 L 332 440 L 622 440 L 622 268 L 640 268" marker-end="url(#fleche)" stroke-dasharray="4 4"/>
+  <path class="flux" d="M 564 262 L 592 262 L 592 360 L 640 360" marker-end="url(#fleche)" stroke-dasharray="4 4"/>
+
+  <!-- Legende -->
+  <line x1="40" y1="452" x2="780" y2="452" stroke="#d0d7de" stroke-width="1" stroke-dasharray="4 4"/>
+  <rect class="acteur" x="44" y="470" width="26" height="18" rx="4"/>
+  <text class="lgd" x="78" y="484">Profil utilisateur</text>
+  <rect class="compo" x="220" y="470" width="26" height="18" rx="4"/>
+  <text class="lgd" x="254" y="484">Composant développé</text>
+  <rect class="infra" x="430" y="470" width="26" height="18" rx="4"/>
+  <text class="lgd" x="464" y="484">Brique d'infrastructure</text>
+  <rect class="ext" x="640" y="470" width="26" height="18" rx="4"/>
+  <text class="lgd" x="674" y="484">Service extérieur</text>
+
+  <text class="txt sous" x="410" y="524" text-anchor="middle">Les liaisons en pointillé désignent des échanges hors du flux de requête d'un utilisateur.</text>
+  <text class="txt sous" x="410" y="542" text-anchor="middle">TaskFlow, vue de contexte</text>
+</svg>
