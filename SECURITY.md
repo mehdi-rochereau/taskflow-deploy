@@ -1,4 +1,4 @@
-# Security Policy
+﻿# Security Policy
 
 > 🇫🇷 [Lire en français](SECURITY.fr.md)
 
@@ -76,7 +76,7 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   their cause
 - Database credentials are rotated on exposure, on sharing, or on schedule. The
   procedure is in
-  [`docs/04-exploitation/DATABASE_CREDENTIAL_ROTATION.md`](docs/04-exploitation/DATABASE_CREDENTIAL_ROTATION.md)
+  [`docs/04-securite/DATABASE_CREDENTIAL_ROTATION.md`](docs/04-securite/DATABASE_CREDENTIAL_ROTATION.md)
 - No credential is ever passed as a command-line argument. Process arguments are
   world-readable in `/proc` for the lifetime of the process
 - GitHub Container Registry token has minimal scope (`read:packages`, `write:packages`)
