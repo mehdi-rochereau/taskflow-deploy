@@ -1,0 +1,24 @@
+[Unit]
+Description=Daily TaskFlow database backup
+Documentation=https://github.com/mehdi-rochereau/taskflow-deploy
+
+[Timer]
+# 03:00 UTC daily. The host runs on UTC, so this is unambiguous and immune to
+# daylight saving shifts.
+OnCalendar=*-*-* 03:00:00 UTC
+
+# Spreads the start over five minutes so the job does not collide with the
+# Certbot timer and Ubuntu's own scheduled tasks, all of which fire on the
+# hour. Matters on a two-vCPU host.
+RandomizedDelaySec=300
+
+# Runs the job on next boot if the scheduled time was missed while the VPS was
+# down. Without this, an outage over 03:00 silently skips a day.
+Persistent=true
+
+# Explicit rather than implied by the filename. Renaming one file without the
+# other would otherwise break the link silently.
+Unit=taskflow-backup.service
+
+[Install]
+WantedBy=timers.target
