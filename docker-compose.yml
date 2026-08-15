@@ -21,7 +21,13 @@ services:
     networks:
       - taskflow-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      # Liveness probe only. No credentials on purpose: mysqladmin exits 0 as soon
+      # as the server answers, even with "access denied", and exits 1 when nothing
+      # listens. Passing -p${MYSQL_ROOT_PASSWORD} would leak the root password into
+      # the container process table and into `docker inspect`, permanently.
+      # -h 127.0.0.1 forces TCP, the same path the API uses. "localhost" would use
+      # the Unix socket and test a path no client ever takes.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
       interval: 10s
       timeout: 5s
       retries: 5
