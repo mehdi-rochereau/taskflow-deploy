@@ -70,7 +70,15 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 - `.env` is excluded from version control via `.gitignore`
 - `.env` contains no default values for production secrets
 - JWT secret is generated with `openssl rand -hex 64` — 512-bit entropy
-- Database passwords are generated with `openssl rand -hex 32` — 256-bit entropy
+- Database passwords are 40-character random alphanumeric strings, generated in a
+  password manager. Special characters are excluded on purpose: they carry meaning
+  in the shell, in `.env` and in SQL, and produce failures that point nowhere near
+  their cause
+- Database credentials are rotated on exposure, on sharing, or on schedule. The
+  procedure is in
+  [`docs/04-exploitation/DATABASE_CREDENTIAL_ROTATION.md`](docs/04-exploitation/DATABASE_CREDENTIAL_ROTATION.md)
+- No credential is ever passed as a command-line argument. Process arguments are
+  world-readable in `/proc` for the lifetime of the process
 - GitHub Container Registry token has minimal scope (`read:packages`, `write:packages`)
 
 ### Application Security
