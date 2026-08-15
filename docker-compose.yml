@@ -12,10 +12,23 @@ services:
     container_name: taskflow-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Passwords are supplied through *_FILE variants rather than inline values.
+      # Docker records `environment` verbatim in Config.Env, where `docker inspect`
+      # exposes it to anyone able to query the daemon, permanently and regardless
+      # of file permissions. The _FILE form records only a path.
+      #
+      # Note these four variables are read by the MySQL image ONLY when the data
+      # volume is first initialised. On an existing volume they are inert: changing
+      # them here does nothing to the accounts stored in the mysql schema, which is
+      # what DATABASE_CREDENTIAL_ROTATION.md is for. They matter for a rebuild from
+      # scratch, which is why they stay.
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
+    secrets:
+      - mysql_root_password
+      - mysql_password
     volumes:
       - taskflow-db-data:/var/lib/mysql
     networks:
@@ -23,7 +36,7 @@ services:
     healthcheck:
       # Liveness probe only. No credentials on purpose: mysqladmin exits 0 as soon
       # as the server answers, even with "access denied", and exits 1 when nothing
-      # listens. Passing -p${MYSQL_ROOT_PASSWORD} would leak the root password into
+      # listens. Passing the root password as an argument would leak it into
       # the container process table and into `docker inspect`, permanently.
       # -h 127.0.0.1 forces TCP, the same path the API uses. "localhost" would use
       # the Unix socket and test a path no client ever takes.
@@ -86,3 +99,17 @@ volumes:
 networks:
   taskflow-network:
     driver: bridge
+
+# ── Secrets ────────────────────────────────────────────────
+# File-based secrets, mounted read-only at /run/secrets/<name> inside the
+# container. The source files live outside /opt/taskflow: that directory is a
+# Git working copy of a public repository, and a stray `git add` there would
+# publish production credentials.
+#
+# Created by hand during installation, mode 600, owner mehdi. They are NOT in
+# the repository and NOT in the .env. See README.md.
+secrets:
+  mysql_root_password:
+    file: /home/mehdi/secrets/mysql_root_password
+  mysql_password:
+    file: /home/mehdi/secrets/mysql_password
