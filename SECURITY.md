@@ -32,6 +32,11 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   All other inbound traffic is blocked by default.
 - **Fail2ban** — Automatically bans IPs after 5 failed SSH attempts within 10 minutes.
   Ban duration: 1 hour.
+- **Single administrative account** — `root@'%'` was dropped on 15 August 2026.
+  It accepted connections from any host on the Docker network with full
+  privileges, and had no remaining use once the healthcheck stopped
+  authenticating. Root now authenticates through the Unix socket only, so a
+  compromised application container has no root account to attack over TCP.
 
 ### Docker Security
 
@@ -46,6 +51,12 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   Registry (ghcr.io) and require authentication to pull.
 - **Read-only secrets** — The `.env` file containing production secrets has
   permissions `600` (owner read/write only).
+- **File-based database secrets** — `taskflow-db` receives its passwords through
+  Docker Compose secrets, mounted read-only at `/run/secrets/`, rather than as
+  inline environment variables. Docker records `environment` verbatim in
+  `Config.Env`, where `docker inspect` exposes it to anyone able to query the
+  daemon, permanently and regardless of file permissions. The source files live
+  in `/home/mehdi/secrets/` at mode `600`, outside the Git working copy.
 - **Credential-free healthcheck** — The `taskflow-db` healthcheck runs
   `mysqladmin ping -h 127.0.0.1` with no credentials. `mysqladmin` exits 0 as
   soon as the server answers, even on access denied, and exits 1 when nothing
@@ -151,13 +162,25 @@ storage. A server restart resets all counters. See
 [taskflow-api/SECURITY.md](https://github.com/mehdi-rochereau/taskflow-api/blob/main/SECURITY.md)
 for details.
 
+### Application Database Credential
+
+`taskflow-api` still receives `DB_PASSWORD` as a plain environment variable, so
+it remains readable in `docker inspect taskflow-api`. Unlike the MySQL image,
+Spring Boot reads its configuration at every start rather than once at
+initialisation, so moving it to a file requires changing the application's
+configuration rather than the Compose file. That work belongs to the
+`taskflow-api` repository and is tracked there.
+
+The exposure is limited: reading it requires access to the Docker daemon, which
+already implies root-equivalent privileges on the host. It is recorded here
+because a partial fix that is not documented as partial reads as a complete one.
+
 ---
 
 ## Planned Improvements
 
 - [ ] Watchtower — automated container image updates
 - [ ] Centralized log management
-- [ ] Removal of the unused `root@'%'` MySQL account
 
 ---
 

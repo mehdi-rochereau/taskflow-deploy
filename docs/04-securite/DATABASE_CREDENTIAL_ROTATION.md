@@ -2,9 +2,26 @@
 
 Rotating the MySQL passwords of the TaskFlow production stack.
 
-Applies to three accounts: `taskflow@'%'` (application account, carried by
-`DB_PASSWORD`), `root@localhost` and `root@'%'` (both carried by
-`MYSQL_ROOT_PASSWORD` in `/opt/taskflow/.env`).
+Applies to two accounts: `taskflow@'%'`, the application account, and
+`root@localhost`, the only remaining administrative account.
+
+`root@'%'` was dropped on 15 August 2026, see issue #20. It accepted connections
+from any host on the Docker network and had no remaining use once the healthcheck
+stopped authenticating. Any older instruction mentioning it no longer applies.
+
+Where each value lives:
+
+| Account | Consumed by | Stored in |
+|---|---|---|
+| `taskflow@'%'` | the API, at every start | `DB_PASSWORD` in `/opt/taskflow/.env`, and `/home/mehdi/secrets/mysql_password` |
+| `root@localhost` | nothing, by design | `/home/mehdi/secrets/mysql_root_password`, and the password manager |
+
+The two files under `/home/mehdi/secrets/` are mounted into `taskflow-db` as
+Docker Compose secrets. The MySQL image reads them **only when the data volume is
+first initialised**, so on the existing volume they are inert. They exist so that
+a rebuild from scratch produces the accounts this procedure expects. Rotating a
+password means running `ALTER USER` **and** updating the file, otherwise the two
+diverge silently and only a rebuild reveals it.
 
 ---
 
@@ -29,7 +46,7 @@ system schema stay as they are, and the API simply fails to authenticate.
 The correct order is:
 
 1. `ALTER USER` against the **running** server
-2. then `/opt/taskflow/.env`
+2. then `/opt/taskflow/.env` and the files under `/home/mehdi/secrets/`
 3. then container recreation
 
 Any other order breaks the API's connection to the database.
@@ -149,34 +166,33 @@ docker exec -i -e MYSQL_PWD="$OLD_APP_PWD" taskflow-db \
 
 The second must fail with error 1045 and a non-zero exit code.
 
-### 3. Rotate both root accounts
+### 3. Rotate the root account
 
-`root@localhost` and `root@'%'` are **two distinct accounts** with separate
-passwords. In MySQL an account is a name/host pair, and `%` is a wildcard
-matching any host. Connections through the Unix socket authenticate as
-`root@localhost`; connections over TCP, including from other containers,
-authenticate as `root@'%'`.
+Only `root@localhost` remains. In MySQL an account is a name/host pair, and this
+one is reachable through the Unix socket alone: connections over TCP, including
+from other containers, have no root account to authenticate against since
+`root@'%'` was dropped.
 
 ```bash
-read -rsp "NEW root@localhost password: " NEW_ROOT_LOCAL_PWD; echo
+read -rsp "NEW root@localhost password: " NEW_ROOT_PWD; echo
 
-printf "ALTER USER 'root'@'localhost' IDENTIFIED BY '%s';\n" "$NEW_ROOT_LOCAL_PWD" \
+printf "ALTER USER 'root'@'localhost' IDENTIFIED BY '%s';\n" "$NEW_ROOT_PWD" \
   | docker exec -i -e MYSQL_PWD taskflow-db mysql -u root
 ```
 
 `MYSQL_PWD` still holds the **old** root password here, which is what
 authenticates this statement.
 
-```bash
-read -rsp "NEW root@% password: " NEW_ROOT_ANY_PWD; echo
+Then update the secret file, or the next rebuild from scratch will create a root
+account with the previous password:
 
-printf "ALTER USER 'root'@'%%' IDENTIFIED BY '%s';\n" "$NEW_ROOT_ANY_PWD" \
-  | docker exec -i -e MYSQL_PWD="$NEW_ROOT_LOCAL_PWD" taskflow-db mysql -u root
+```bash
+printf '%s' "$NEW_ROOT_PWD" > /home/mehdi/secrets/mysql_root_password
+chmod 600 /home/mehdi/secrets/mysql_root_password
 ```
 
-Note the change: the statement above travels through the Unix socket, so it
-authenticates as `root@localhost`, whose password has just changed. Reusing the
-old value here fails.
+`printf '%s'` without a newline is not cosmetic: the MySQL image reads the file
+verbatim, and a trailing newline becomes part of the password.
 
 ### 4. Record the start of the outage window
 
@@ -191,16 +207,23 @@ nano /opt/taskflow/.env
 chmod 600 /opt/taskflow/.env
 ```
 
-Two lines change: `MYSQL_ROOT_PASSWORD` and `DB_PASSWORD`.
+One line changes: `DB_PASSWORD`, consumed by the API at every start.
 
-`MYSQL_ROOT_PASSWORD` takes the **`root@'%'`** value. The `root@localhost` value
-lives in the password manager only, and is typed at the prompt when opening a
-client. Getting this backwards is not harmless while the old healthcheck is still
-deployed: it pings over TCP, so it authenticates `root@'%'`, and a mismatch keeps
-`taskflow-db` `unhealthy`, which in turn blocks `taskflow-api` through
-`condition: service_healthy`.
+`MYSQL_ROOT_PASSWORD` is no longer in this file. Since issue #20 the database
+receives its passwords through Docker Compose secrets, and `docker inspect` shows
+only paths. The root value lives in `/home/mehdi/secrets/mysql_root_password` and
+in the password manager, nowhere else.
 
-`chmod 600` is mandatory after any edit. Editors do not preserve permissions.
+Also update the application secret file, for the same reason as the root one in
+step 3:
+
+```bash
+printf '%s' "$NEW_APP_PWD" > /home/mehdi/secrets/mysql_password
+chmod 600 /home/mehdi/secrets/mysql_password
+```
+
+`chmod 600` is mandatory after any edit, on the `.env` and on both secret files.
+Editors do not preserve permissions.
 
 Validate before recreating:
 
@@ -251,8 +274,8 @@ check covering an end-to-end application read.
 ### 9. Clean up
 
 ```bash
-unset MYSQL_PWD NEW_APP_PWD OLD_APP_PWD NEW_ROOT_LOCAL_PWD NEW_ROOT_ANY_PWD STAMP
-env | grep -cE 'MYSQL_PWD|_APP_PWD|_ROOT_.*_PWD'
+unset MYSQL_PWD NEW_APP_PWD OLD_APP_PWD NEW_ROOT_PWD STAMP
+env | grep -cE 'MYSQL_PWD|_APP_PWD|_ROOT_PWD'
 
 grep -nE '\-p[^ ]|PASSWORD=|IDENTIFIED BY' ~/.bash_history | cut -c1-80
 history | grep -nE '\-p[^ ]|PASSWORD=|IDENTIFIED BY' | cut -c1-100
@@ -301,7 +324,9 @@ credential rotation does not do. It is insurance, not part of the normal path.
 | `Access denied for user 'taskflow'@'localhost'` during the dump | `MYSQL_PWD` holds the root password, or the wrong account's password | Reload `MYSQL_PWD` with the current application password |
 | `you need (at least one of) the PROCESS privilege(s) ... tablespaces` | `mysqldump` lists InnoDB tablespaces by default | Add `--no-tablespaces`. Do not grant `PROCESS` to the application account |
 | A zero-byte or truncated `.sql` file after a failed dump | The shell creates the redirection target before the command runs | Delete the file. A failed dump always leaves one behind |
-| `taskflow-db` stays `unhealthy` after recreation | `MYSQL_ROOT_PASSWORD` holds the `root@localhost` value while the old healthcheck pings over TCP | Use the `root@'%'` value |
+| `ERROR 1045` connecting as root over TCP | `root@'%'` was dropped on 15 August 2026. Root authenticates through the Unix socket only | Use `docker exec` without `-h`, which takes the socket |
+| A rebuild from scratch produces accounts with old passwords | `ALTER USER` was run without updating the files under `/home/mehdi/secrets/` | Rotate both: the statement and the file |
+| The password in a secret file is rejected | A trailing newline was written into it, and the MySQL image reads the file verbatim | Rewrite with `printf '%s'`, never `echo` |
 | `taskflow-api` never starts, no error of its own | `condition: service_healthy` is blocking on an unhealthy database | Fix the database first, the API is a symptom |
 | The new password works nowhere after editing `.env` only | `MYSQL_USER` and `MYSQL_PASSWORD` are read at volume initialisation only | `ALTER USER` first. See the ordering constraint |
 
@@ -309,9 +334,10 @@ credential rotation does not do. It is insurance, not part of the normal path.
 
 ## Related
 
-- Healthcheck credential exposure, fixed in the same pass: see the
+- Healthcheck credential exposure, fixed on 15 August 2026: see the
   `taskflow-db` healthcheck comment in `docker-compose.yml`.
-- `root@'%'` exists because the MySQL image creates it, not because the stack
-  needs it. Removing it is tracked separately.
-- Automated backups are tracked separately. Until they exist, the manual dump in
-  step 1 is the only safety net.
+- `root@'%'` was dropped and the database passwords moved to Compose secrets on
+  15 August 2026, issue #20.
+- Automated daily backups exist since 15 August 2026, issue #17. The manual dump
+  in step 1 remains the right move before any credential change.
+- Restoring a database: `DATABASE_RESTORE.md`.

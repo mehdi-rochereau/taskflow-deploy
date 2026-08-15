@@ -149,13 +149,37 @@ nano .env
 chmod 600 .env
 ```
 
-**5. Authenticate with GitHub Container Registry**
+**5. Create the database secret files**
+
+```bash
+mkdir -p /home/mehdi/secrets
+chmod 700 /home/mehdi/secrets
+
+read -rsp "MySQL root password: " P; echo
+printf '%s' "$P" > /home/mehdi/secrets/mysql_root_password
+
+read -rsp "MySQL application password: " P; echo
+printf '%s' "$P" > /home/mehdi/secrets/mysql_password
+
+chmod 600 /home/mehdi/secrets/mysql_root_password /home/mehdi/secrets/mysql_password
+unset P
+```
+
+These two files are mounted into `taskflow-db` as Docker Compose secrets. They
+live outside `/opt/taskflow`, which is a Git working copy of a public
+repository. `printf '%s'` rather than `echo`: the MySQL image reads each file
+verbatim, and a trailing newline would become part of the password.
+
+`docker compose config` fails if either file is missing, so the omission is
+caught before anything starts.
+
+**6. Authenticate with GitHub Container Registry**
 
 ```bash
 echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 ```
 
-**6. Configure Nginx**
+**7. Configure Nginx**
 
 ```bash
 sudo nano /etc/nginx/sites-available/taskflow
@@ -165,7 +189,7 @@ sudo ln -s /etc/nginx/sites-available/api-taskflow /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**7. Generate SSL certificates**
+**8. Generate SSL certificates**
 
 ```bash
 sudo certbot --nginx -d taskflow.mehdi-rochereau.dev -d api.taskflow.mehdi-rochereau.dev
@@ -251,7 +275,7 @@ Copy `.env.example` to `.env` and fill in real values.
 
 | Variable | Description |
 |----------|-------------|
-| `MYSQL_ROOT_PASSWORD` | Password of the `root@'%'` MySQL account — internal use only. `root@localhost` is a separate account with a separate password, never stored on the server |
+| `MYSQL_ROOT_PASSWORD` | **Removed.** Since issue #20 the database receives its passwords through Docker Compose secrets, from files under `/home/mehdi/secrets/`, not from this file |
 | `DB_HOST` | Database host — `taskflow-db` (Docker service name) |
 | `DB_PORT` | Database port — `3306` |
 | `DB_NAME` | Database name |
