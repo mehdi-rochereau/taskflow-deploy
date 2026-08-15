@@ -1,0 +1,27 @@
+[Unit]
+# Oneshot job invoked by taskflow-backup.timer. Never enabled on its own.
+Description=TaskFlow database backup
+Documentation=https://github.com/mehdi-rochereau/taskflow-deploy
+# The script talks to the Docker daemon: starting before it is up would fail
+# on every boot-triggered catch-up run.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+
+# Not root. The script reads /opt/taskflow/.env, mode 600, owned by mehdi.
+# Running as root would work but would make the file's permissions irrelevant
+# as a control: the credential would be readable by a process that did not
+# need the privilege.
+User=mehdi
+Group=mehdi
+
+ExecStart=/opt/taskflow/scripts/backup-db.sh
+
+# A backup that hangs is worse than one that fails: it silently occupies the
+# next run's slot. mysqldump on this database takes under a second.
+TimeoutStartSec=600
+
+[Install]
+# No WantedBy: this unit is started by its timer, never enabled directly.

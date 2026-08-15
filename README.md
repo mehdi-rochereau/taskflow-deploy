@@ -60,10 +60,17 @@ taskflow-deploy/
 ├── .github/               # Issue and pull request templates
 ├── docs/                  # Cross-repository project documentation
 │   ├── README.md
+│   ├── 01-expression-des-besoins/
 │   ├── 02-gestion-de-projet/
+│   ├── 04-securite/
 │   └── images/
-└── scripts/
-    ├── deploy.sh          # Production deployment script
+├── scripts/
+│   ├── backup-db.sh       # Automated database backup
+│   ├── deploy.sh          # Production deployment script
+│   └── .gitattributes     # Line ending configuration
+└── systemd/
+    ├── taskflow-backup.service
+    ├── taskflow-backup.timer
     └── .gitattributes     # Line ending configuration
 ```
 
@@ -193,13 +200,58 @@ docker compose logs taskflow-api --tail=50
 
 ---
 
+## Backups
+
+The production database is dumped every day at 03:00 UTC by
+`scripts/backup-db.sh`, scheduled by a systemd timer. Dumps are written to
+`/home/mehdi/backups`, kept for seven days, and a failure sends a push
+notification to the maintainer.
+
+**Install the timer** (once, after cloning):
+
+```bash
+sudo cp systemd/taskflow-backup.service /etc/systemd/system/
+sudo cp systemd/taskflow-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now taskflow-backup.timer
+```
+
+**Check the schedule and the last run:**
+
+```bash
+systemctl list-timers taskflow-backup.timer
+systemctl status taskflow-backup.service
+journalctl -u taskflow-backup.service --since "7 days ago"
+```
+
+**Run one on demand:**
+
+```bash
+sudo systemctl start taskflow-backup.service
+```
+
+Backups live on the VPS disk, outside the Git working copy. They cover logical
+damage — a bad migration, an accidental deletion — at table granularity. The
+loss of the server itself is covered separately by Hetzner's daily snapshots,
+which is why no off-site copy of these dumps is kept. See issue #17 and
+[`SECURITY.md`](SECURITY.md).
+
+Automated dumps are named `taskflow-auto_*.sql` and pruned after seven days.
+Manual dumps named `taskflow_*.sql` are never pruned.
+
+Restoring, and verifying that a backup is actually restorable, is documented in
+[`docs/04-securite/DATABASE_RESTORE.md`](docs/04-securite/DATABASE_RESTORE.md).
+A backup that has never been restored is not a backup.
+
+---
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` and fill in real values.
 
 | Variable | Description |
 |----------|-------------|
-| `MYSQL_ROOT_PASSWORD` | MySQL root password — internal use only |
+| `MYSQL_ROOT_PASSWORD` | Password of the `root@'%'` MySQL account — internal use only. `root@localhost` is a separate account with a separate password, never stored on the server |
 | `DB_HOST` | Database host — `taskflow-db` (Docker service name) |
 | `DB_PORT` | Database port — `3306` |
 | `DB_NAME` | Database name |
@@ -210,12 +262,18 @@ Copy `.env.example` to `.env` and fill in real values.
 | `COOKIE_SECURE` | Enable `Secure` flag on cookies — `true` in production |
 | `REFRESH_TOKEN_EXPIRATION_DAYS` | Refresh token validity — default `7` days |
 | `CORS_ALLOWED_ORIGINS` | Allowed CORS origin — `https://taskflow.mehdi-rochereau.dev` |
+| `NTFY_TOPIC` | ntfy topic used by the backup script to report failures. Treat as a secret: anyone knowing the name can read and post to it |
 
 Generate a secure JWT secret:
 
 ```bash
 openssl rand -hex 64
 ```
+
+Database passwords are not generated this way. Use a password manager, 40
+characters, alphanumeric, no special characters: `$`, quotes, backslash and
+backtick all carry meaning in the shell, in `.env` and in SQL, and produce
+failures that point nowhere near their cause.
 
 ---
 
@@ -227,6 +285,10 @@ openssl rand -hex 64
 - MySQL port is not exposed outside the Docker network
 - All traffic is encrypted via HTTPS (Let's Encrypt)
 - Nginx enforces HTTP → HTTPS redirection
+- No credential is passed as a command-line argument, in the healthcheck or
+  anywhere else. Process arguments are world-readable in `/proc`
+- Database credentials are rotated on exposure, on sharing, or on schedule:
+  [`docs/04-securite/DATABASE_CREDENTIAL_ROTATION.md`](docs/04-securite/DATABASE_CREDENTIAL_ROTATION.md)
 
 For application-level security details, see:
 - [taskflow-api/SECURITY.md](https://github.com/mehdi-rochereau/taskflow-api/blob/main/SECURITY.md)

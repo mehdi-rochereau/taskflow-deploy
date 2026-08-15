@@ -46,6 +46,12 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   Registry (ghcr.io) and require authentication to pull.
 - **Read-only secrets** — The `.env` file containing production secrets has
   permissions `600` (owner read/write only).
+- **Credential-free healthcheck** — The `taskflow-db` healthcheck runs
+  `mysqladmin ping -h 127.0.0.1` with no credentials. `mysqladmin` exits 0 as
+  soon as the server answers, even on access denied, and exits 1 when nothing
+  listens, so authentication adds nothing to the liveness signal. Passing the
+  root password as an argument, as an earlier version did, made it permanently
+  visible in the container process table and in `docker inspect`.
 
 ### Transport Security
 
@@ -80,6 +86,12 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 - No credential is ever passed as a command-line argument. Process arguments are
   world-readable in `/proc` for the lifetime of the process
 - GitHub Container Registry token has minimal scope (`read:packages`, `write:packages`)
+- The backup script reads its credentials from the same `.env` file at `600`,
+  and its systemd unit runs as `mehdi` rather than root, so that file permission
+  remains a real control rather than a formality
+- The ntfy topic used for backup alerts is treated as a secret and stored in
+  `.env`: the public ntfy service has no authentication, so anyone knowing the
+  topic name can read and post to it
 
 ### Application Security
 
@@ -111,10 +123,26 @@ All application-level security is documented in the respective repositories:
 The current deployment runs all services on a single VPS. This means:
 - No high availability — a server failure takes down all services
 - No horizontal scaling — CPU and memory are shared between API, UI and database
-- Backups rely on Hetzner's automated snapshot feature (daily)
 
-A production-grade deployment would use separate database servers, load balancers
-and a container orchestration platform such as Kubernetes.
+### Backup Coverage
+
+Two mechanisms cover different failures, and neither replaces the other:
+
+- **Hetzner automated snapshots**, daily, image the whole machine. They recover
+  from the loss of the server or its disk, but restore everything at once and
+  cannot bring back a single table.
+- **Logical dumps**, daily at 03:00 UTC, produced by `scripts/backup-db.sh`.
+  They recover from logical damage — a bad migration, an accidental deletion —
+  at table granularity, and can be inspected and partially replayed.
+
+The logical dumps are stored on the VPS disk itself, so on their own they would
+not survive its loss. Copying them off-site was considered and deliberately
+declined on 15 August 2026: the snapshots already cover that failure mode, and
+the recurring cost was not justified for a portfolio project. See issue #17.
+
+Recovery point objective: 24 hours. Restore procedure:
+[`docs/04-securite/DATABASE_RESTORE.md`](docs/04-securite/DATABASE_RESTORE.md),
+verified against a throwaway container on 15 August 2026.
 
 ### In-Memory Rate Limiting
 
@@ -127,10 +155,9 @@ for details.
 
 ## Planned Improvements
 
-- [ ] GitHub Actions CI/CD — automated build, push and deploy pipeline
 - [ ] Watchtower — automated container image updates
 - [ ] Centralized log management
-- [ ] Database backup automation
+- [ ] Removal of the unused `root@'%'` MySQL account
 
 ---
 
