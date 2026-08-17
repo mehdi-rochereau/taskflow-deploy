@@ -39,7 +39,7 @@ worth its recurring cost for this project.
 Run this against a disposable container. Production is never touched, and no
 command in this section addresses `taskflow-db`.
 
-### 1. Start a throwaway MySQL 8.0 container
+### 1. Start a throwaway MySQL 8.4 container
 
 ```bash
 export RESTORE_PWD="$(head -c 30 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)"
@@ -47,7 +47,7 @@ export RESTORE_PWD="$(head -c 30 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | he
 docker run -d --name taskflow-restore-test \
   -e MYSQL_ROOT_PASSWORD="$RESTORE_PWD" \
   -e MYSQL_DATABASE=taskflow \
-  mysql:8.0
+  mysql:8.4
 ```
 
 The password exists only in this shell, for the lifetime of the test. No port is

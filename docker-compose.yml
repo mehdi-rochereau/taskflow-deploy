@@ -8,7 +8,13 @@ services:
 
   # ── Database ───────────────────────────────────────────────
   taskflow-db:
-    image: mysql:8.0
+    # MySQL 8.4 LTS. 8.0 reached end of support; 8.4 is the next LTS release and
+    # the version already running in development, so both environments now match.
+    # The data dictionary is migrated on first start and the migration is
+    # irreversible: this volume will no longer start under 8.0. Rolling back
+    # means restoring a dump into a fresh volume, or the Hetzner snapshot.
+    # See issue #23 and docs/04-securite/DATABASE_RESTORE.md.
+    image: mysql:8.4
     container_name: taskflow-db
     restart: unless-stopped
     environment:
