@@ -58,6 +58,8 @@ taskflow-deploy/
 ├── SECURITY.md            # Infrastructure security policy
 ├── SECURITY.fr.md         # French version
 ├── .github/               # Issue and pull request templates
+├── db/
+│   └── init/              # SQL executed on first volume initialisation only
 ├── docs/                  # Cross-repository project documentation
 │   ├── README.md
 │   ├── 01-expression-des-besoins/
@@ -310,7 +312,9 @@ failures that point nowhere near their cause.
 - All traffic is encrypted via HTTPS (Let's Encrypt)
 - Nginx enforces HTTP → HTTPS redirection
 - No credential is passed as a command-line argument, in the healthcheck or
-  anywhere else. Process arguments are world-readable in `/proc`
+  anywhere else. Process arguments are world-readable in `/proc`. The
+  `taskflow-db` healthcheck authenticates as `healthcheck@'%'`, an account with
+  no password and `USAGE` only, reaching no database, table or row
 - Database credentials are rotated on exposure, on sharing, or on schedule:
   [`docs/04-securite/DATABASE_CREDENTIAL_ROTATION.md`](docs/04-securite/DATABASE_CREDENTIAL_ROTATION.md)
 

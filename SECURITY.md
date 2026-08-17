@@ -35,8 +35,11 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 - **Single administrative account** — `root@'%'` was dropped on 15 August 2026.
   It accepted connections from any host on the Docker network with full
   privileges, and had no remaining use once the healthcheck stopped
-  authenticating. Root now authenticates through the Unix socket only, so a
-  compromised application container has no root account to attack over TCP.
+  authenticating as root. Root now authenticates through the Unix socket only,
+  so a compromised application container has no root account to attack over TCP.
+  The healthcheck was later given its own account, `healthcheck@'%'`, holding
+  `USAGE` only and reaching no database, table or row. It is not an
+  administrative account and does not weaken this guarantee.
 
 ### Docker Security
 
@@ -57,12 +60,16 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   `Config.Env`, where `docker inspect` exposes it to anyone able to query the
   daemon, permanently and regardless of file permissions. The source files live
   in `/home/mehdi/secrets/` at mode `600`, outside the Git working copy.
-- **Credential-free healthcheck** — The `taskflow-db` healthcheck runs
-  `mysqladmin ping -h 127.0.0.1` with no credentials. `mysqladmin` exits 0 as
-  soon as the server answers, even on access denied, and exits 1 when nothing
-  listens, so authentication adds nothing to the liveness signal. Passing the
-  root password as an argument, as an earlier version did, made it permanently
-  visible in the container process table and in `docker inspect`.
+- **Passwordless, unprivileged healthcheck account** — The `taskflow-db`
+  healthcheck runs `mysqladmin ping -h 127.0.0.1 -u healthcheck`. The account
+  holds `USAGE` only and has no password, so nothing secret is passed and
+  nothing sensitive is reachable. Passing the root password as an argument, as
+  an early version did, made it permanently visible in the container process
+  table and in `docker inspect`. Probing anonymously, as the next version did,
+  removed that exposure but made the server treat every probe as a login from a
+  non-existent account, which flooded the error log with `MY-013360` warnings
+  once `root@'%'` was dropped. A named, existing, powerless account is what
+  satisfies both constraints. See issue #27.
 
 ### Transport Security
 

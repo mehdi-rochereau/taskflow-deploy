@@ -1,0 +1,12 @@
+-- Runs only when the data volume is initialised from scratch. The MySQL image
+-- executes everything in /docker-entrypoint-initdb.d on first start and never
+-- again, so this file is inert on an existing volume.
+--
+-- Creates the account used by the compose healthcheck. USAGE only: it can open
+-- a connection and reach no database, no table, no row. No password on purpose,
+-- see the healthcheck comment in docker-compose.yml for the reasoning.
+--
+-- Without this file, a rebuild from an empty volume would come back without the
+-- account, the probe would authenticate as a non-existent user again and
+-- MY-013360 would silently flood the error log once more. See issue #27.
+CREATE USER IF NOT EXISTS 'healthcheck'@'%' IDENTIFIED WITH caching_sha2_password;
