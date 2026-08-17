@@ -23,12 +23,20 @@ services:
       # exposes it to anyone able to query the daemon, permanently and regardless
       # of file permissions. The _FILE form records only a path.
       #
-      # Note these four variables are read by the MySQL image ONLY when the data
+      # Note these five variables are read by the MySQL image ONLY when the data
       # volume is first initialised. On an existing volume they are inert: changing
       # them here does nothing to the accounts stored in the mysql schema, which is
       # what DATABASE_CREDENTIAL_ROTATION.md is for. They matter for a rebuild from
       # scratch, which is why they stay.
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      # The image defaults MYSQL_ROOT_HOST to '%', which creates root@'%' on top
+      # of root@localhost. That account accepts TCP connections from any
+      # container on taskflow-network, with full privileges. It was dropped by
+      # hand on 15 August 2026 (#20), but nothing here reproduced that gesture:
+      # a rebuild from an empty volume would silently bring it back, undoing the
+      # hardening on the very path taken after a restore. Pinning the value to
+      # localhost prevents the account from ever being created. See issue #29.
+      MYSQL_ROOT_HOST: localhost
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
