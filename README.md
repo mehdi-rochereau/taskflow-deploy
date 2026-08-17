@@ -41,7 +41,7 @@ VPS Hetzner CPX22 (Ubuntu 24.04)
     └── Docker Compose
             ├── taskflow-api  (Spring Boot 3.5 / Java 21)
             ├── taskflow-ui   (Angular 21 + Nginx)
-            └── taskflow-db   (MySQL 8.0)
+            └── taskflow-db   (MySQL 8.4)
 ```
 
 ---
@@ -93,7 +93,7 @@ taskflow-deploy/
 
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
-| `taskflow-db` | `mysql:8.0` | — | MySQL database (internal only) |
+| `taskflow-db` | `mysql:8.4` | — | MySQL database (internal only) |
 | `taskflow-api` | `ghcr.io/mehdi-rochereau/taskflow-api:latest` | `8082` | Spring Boot REST API |
 | `taskflow-ui` | `ghcr.io/mehdi-rochereau/taskflow-ui:latest` | `4000` | Angular frontend |
 
