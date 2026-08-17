@@ -37,6 +37,10 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   privileges, and had no remaining use once the healthcheck stopped
   authenticating as root. Root now authenticates through the Unix socket only,
   so a compromised application container has no root account to attack over TCP.
+  The image would recreate `root@'%'` on any rebuild from an empty volume, so
+  `MYSQL_ROOT_HOST` is pinned to `localhost` in `docker-compose.yml`: the
+  guarantee holds after a restore, not only on the running instance. See
+  issue #29.
   The healthcheck was later given its own account, `healthcheck@'%'`, holding
   `USAGE` only and reaching no database, table or row. It is not an
   administrative account and does not weaken this guarantee.

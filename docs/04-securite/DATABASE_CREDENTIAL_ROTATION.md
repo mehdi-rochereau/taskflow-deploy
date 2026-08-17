@@ -14,7 +14,8 @@ issue #27.
 `root@'%'` was dropped on 15 August 2026, see issue #20. It accepted connections
 from any host on the Docker network and had no remaining use once the healthcheck
 stopped authenticating as root. Any older instruction mentioning it no longer
-applies.
+applies. Since issue #29, `MYSQL_ROOT_HOST` is pinned to `localhost` in
+`docker-compose.yml`, so a rebuild from an empty volume no longer recreates it.
 
 Where each value lives:
 
@@ -333,6 +334,7 @@ credential rotation does not do. It is insurance, not part of the normal path.
 | `you need (at least one of) the PROCESS privilege(s) ... tablespaces` | `mysqldump` lists InnoDB tablespaces by default | Add `--no-tablespaces`. Do not grant `PROCESS` to the application account |
 | A zero-byte or truncated `.sql` file after a failed dump | The shell creates the redirection target before the command runs | Delete the file. A failed dump always leaves one behind |
 | `ERROR 1045` connecting as root over TCP | `root@'%'` was dropped on 15 August 2026. Root authenticates through the Unix socket only | Use `docker exec` without `-h`, which takes the socket |
+| `root@'%'` reappears after a rebuild | `MYSQL_ROOT_HOST` defaults to `%` in the image | Pinned to `localhost` since #29. If it comes back, check that variable first |
 | A rebuild from scratch produces accounts with old passwords | `ALTER USER` was run without updating the files under `/home/mehdi/secrets/` | Rotate both: the statement and the file |
 | The password in a secret file is rejected | A trailing newline was written into it, and the MySQL image reads the file verbatim | Rewrite with `printf '%s'`, never `echo` |
 | `taskflow-api` never starts, no error of its own | `condition: service_healthy` is blocking on an unhealthy database | Fix the database first, the API is a symptom |
