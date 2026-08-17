@@ -5,9 +5,16 @@ Rotating the MySQL passwords of the TaskFlow production stack.
 Applies to two accounts: `taskflow@'%'`, the application account, and
 `root@localhost`, the only remaining administrative account.
 
+A third account exists, `healthcheck@'%'`, used by the `taskflow-db` Docker
+healthcheck. It holds `USAGE` only, reaches no database, table or row, and has
+no password, so there is nothing to rotate. It is listed here so that the
+inventory is complete and so that nobody mistakes it for an omission. See
+issue #27.
+
 `root@'%'` was dropped on 15 August 2026, see issue #20. It accepted connections
 from any host on the Docker network and had no remaining use once the healthcheck
-stopped authenticating. Any older instruction mentioning it no longer applies.
+stopped authenticating as root. Any older instruction mentioning it no longer
+applies.
 
 Where each value lives:
 
@@ -15,6 +22,7 @@ Where each value lives:
 |---|---|---|
 | `taskflow@'%'` | the API, at every start | `DB_PASSWORD` in `/opt/taskflow/.env`, and `/home/mehdi/secrets/mysql_password` |
 | `root@localhost` | nothing, by design | `/home/mehdi/secrets/mysql_root_password`, and the password manager |
+| `healthcheck@'%'` | the `taskflow-db` healthcheck, every 10 seconds | nowhere, the account has no password |
 
 The two files under `/home/mehdi/secrets/` are mounted into `taskflow-db` as
 Docker Compose secrets. The MySQL image reads them **only when the data volume is
@@ -334,8 +342,9 @@ credential rotation does not do. It is insurance, not part of the normal path.
 
 ## Related
 
-- Healthcheck credential exposure, fixed on 15 August 2026: see the
-  `taskflow-db` healthcheck comment in `docker-compose.yml`.
+- Healthcheck credential exposure, fixed on 15 August 2026, and the dedicated
+  healthcheck account added on 17 August 2026, issue #27: see the `taskflow-db`
+  healthcheck comment in `docker-compose.yml`.
 - `root@'%'` was dropped and the database passwords moved to Compose secrets on
   15 August 2026, issue #20.
 - Automated daily backups exist since 15 August 2026, issue #17. The manual dump
