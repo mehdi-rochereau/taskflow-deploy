@@ -37,16 +37,28 @@ services:
       - mysql_password
     volumes:
       - taskflow-db-data:/var/lib/mysql
+      # Executed by the image only when taskflow-db-data is initialised from
+      # scratch. Read-only: the container has no business writing here.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     networks:
       - taskflow-network
     healthcheck:
-      # Liveness probe only. No credentials on purpose: mysqladmin exits 0 as soon
-      # as the server answers, even with "access denied", and exits 1 when nothing
-      # listens. Passing the root password as an argument would leak it into
-      # the container process table and into `docker inspect`, permanently.
+      # Liveness probe only. Runs as `healthcheck`@'%', an account holding USAGE
+      # only: it can open a connection and reach no database, no table, no row.
+      # No password on purpose. Passing one as an argument would leak it into the
+      # container process table and into `docker inspect`, permanently, and a
+      # drift between the account and its secret file would turn taskflow-db
+      # unhealthy and block taskflow-api on its service_healthy condition.
+      # The account is not cosmetic. mysqladmin exits 0 as soon as the server
+      # answers, even on "access denied", so an anonymous probe would work just
+      # as well, but since root@'%' was dropped (#20) the server treated every
+      # probe as a login from a non-existent user, built a decoy account with a
+      # randomly picked plugin and logged MY-013360 (sha256_password deprecated)
+      # every 10 seconds, roughly 8600 lines a day, drowning real warnings.
+      # See MySQL bug #109635. A named, existing account removes the cause.
       # -h 127.0.0.1 forces TCP, the same path the API uses. "localhost" would use
       # the Unix socket and test a path no client ever takes.
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 5
