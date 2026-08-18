@@ -328,7 +328,7 @@ Copy `.env.example` to `.env` and fill in real values.
 | `JWT_EXPIRATION` | JWT expiry in milliseconds — default `900000` (15 min) |
 | `COOKIE_SECURE` | Enable `Secure` flag on cookies — `true` in production |
 | `REFRESH_TOKEN_EXPIRATION_DAYS` | Refresh token validity — default `7` days |
-| `CORS_ALLOWED_ORIGINS` | Allowed CORS origin — `https://taskflow.mehdi-rochereau.dev` |
+| `CORS_ALLOWED_ORIGINS` | Allowed CORS origins, comma-separated — `https://taskflow.mehdi-rochereau.dev,https://api.taskflow.mehdi-rochereau.dev` |
 | `NTFY_TOPIC` | ntfy topic used by the backup script to report failures. Treat as a secret: anyone knowing the name can read and post to it |
 
 Generate a secure JWT secret:
