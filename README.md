@@ -210,12 +210,53 @@ docker compose up -d
 
 **Using the deployment script**
 
+`scripts/deploy.sh` deploys one application service at a time. It is the entry
+point called by the CD pipelines, and can also be run by hand.
+
 ```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
+./scripts/deploy.sh taskflow-api
+./scripts/deploy.sh taskflow-ui
 ```
 
-The script automatically pulls the latest images, restarts the stack and verifies the API health check.
+The service name is mandatory: an invocation with no argument is refused rather
+than treated as a request to redeploy everything. `taskflow-db` is not an
+accepted value, is never pulled, and is never recreated: `up -d` carries
+`--no-deps`, without which Compose would bring up the services declared in
+`depends_on` and recreate any whose configuration has drifted from the compose
+file.
+
+Because of that, a change to the `taskflow-db` service in the compose file will
+never reach production through a deployment. It has to be applied by hand,
+knowingly, with a manual dump taken first.
+
+The script refuses to deploy when `taskflow-db` is not `healthy`. `--no-deps`
+removes the `service_healthy` condition Compose would otherwise wait on, so the
+check is made here instead. In rollback mode the state is reported but not
+enforced: a recovery path should have as few conditions as possible.
+
+Before doing anything the script checks that `docker-compose.yml`, `.env` and
+`db/init/01-healthcheck-account.sql` are present, and aborts if any is missing.
+Compose silently creates a missing bind mount source as an empty directory, so a
+deployment from an incomplete working copy would leave the database without its
+healthcheck account on the next rebuild.
+
+Rolling back the last deployment of a service:
+
+```bash
+./scripts/deploy.sh taskflow-api --rollback
+```
+
+The script performs no `git` operation. Updating this working copy is the
+caller's responsibility, before the script is invoked:
+
+```bash
+cd /opt/taskflow && git pull --ff-only
+```
+
+Health checking is the caller's responsibility too: it queries the public URL
+through Nginx and TLS, which the script cannot observe from inside the VPS.
+Deploying a service recreates its container, which interrupts it for a few
+seconds.
 
 **Check service status**
 
