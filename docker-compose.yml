@@ -85,14 +85,31 @@ services:
       DB_HOST: taskflow-db
       DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
+      # DB_USERNAME stays an ordinary variable on purpose: an account name is not
+      # a credential, and the same value feeds MYSQL_USER on taskflow-db, so a
+      # single source prevents the two services from drifting apart.
+      # The two secrets that used to sit here, DB_PASSWORD and JWT_SECRET, are
+      # now mounted as files, see the secrets block below. See issue #38.
       DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       COOKIE_SECURE: ${COOKIE_SECURE}
       REFRESH_TOKEN_EXPIRATION_DAYS: ${REFRESH_TOKEN_EXPIRATION_DAYS}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-
+    secrets:
+      # Long form is mandatory here: the Compose secret name and the file name the
+      # API expects do not coincide. The production profile imports the whole
+      # directory with `spring.config.import: configtree:/run/secrets/`, which turns
+      # each file name into a property name, so `target` IS the property, dot
+      # included, and a typo produces a container that refuses to start.
+      #
+      # mysql_password is the same secret already mounted on taskflow-db, under a
+      # different target. It is the password of the `taskflow` account: MySQL uses
+      # it to create the account, the API uses it to connect. Duplicating it into a
+      # second file would guarantee a drift on the next rotation.
+      - source: mysql_password
+        target: db.password
+      - source: jwt_secret
+        target: jwt.secret
     ports:
       - "127.0.0.1:8082:8082"
     networks:
@@ -127,10 +144,14 @@ networks:
     driver: bridge
 
 # ── Secrets ────────────────────────────────────────────────
-# File-based secrets, mounted read-only at /run/secrets/<name> inside the
-# container. The source files live outside /opt/taskflow: that directory is a
-# Git working copy of a public repository, and a stray `git add` there would
-# publish production credentials.
+# File-based secrets, mounted read-only under /run/secrets/ inside the container.
+# The file name there is the secret name in short form, or the `target` value in
+# long form, which is how taskflow-api gets db.password and jwt.secret out of
+# mysql_password and jwt_secret.
+#
+# The source files live outside /opt/taskflow: that directory is a Git working
+# copy of a public repository, and a stray `git add` there would publish
+# production credentials.
 #
 # Created by hand during installation, mode 600, owner mehdi. They are NOT in
 # the repository and NOT in the .env. See README.md.
@@ -139,3 +160,5 @@ secrets:
     file: /home/mehdi/secrets/mysql_root_password
   mysql_password:
     file: /home/mehdi/secrets/mysql_password
+  jwt_secret:
+    file: /home/mehdi/secrets/jwt_secret
