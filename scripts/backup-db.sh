@@ -2,9 +2,10 @@
 #
 # backup-db.sh - Automated logical backup of the TaskFlow production database.
 #
-# Runs unattended from a systemd timer, as user mehdi. Produces one dump per
-# run in /home/mehdi/backups, verifies it, prunes its own dumps older than the
-# retention window, and pushes a notification if anything fails.
+# Runs unattended from a systemd timer, as user mehdi, owner of both the .env
+# and the secret file it reads. Produces one dump per run in /home/mehdi/backups,
+# verifies it, prunes its own dumps older than the retention window, and pushes
+# a notification if anything fails.
 #
 # Deliberately NOT covered here, see issue #17:
 #   - off-site copy: dumps stay on the VPS disk, an accepted trade-off
@@ -20,6 +21,10 @@ set -euo pipefail
 # nobody tests.
 
 ENV_FILE="/opt/taskflow/.env"
+# Same file Docker Compose mounts into taskflow-db and taskflow-api as a secret.
+# Reading it here rather than duplicating the value into the .env keeps a single
+# source: a rotation touches one file and every consumer follows. See issue #38.
+SECRET_FILE="/home/mehdi/secrets/mysql_password"
 BACKUP_DIR="/home/mehdi/backups"
 CONTAINER="taskflow-db"
 DB_NAME="taskflow"
@@ -66,8 +71,9 @@ fail() {
 trap 'fail "unexpected error on line ${LINENO}"' ERR
 
 # --- Credentials -------------------------------------------------------------
-# Read only the two keys needed. Sourcing the whole file would pull
-# MYSQL_ROOT_PASSWORD into this process environment for no reason.
+# The password comes from the secret file, the rest from the .env. Sourcing the
+# .env wholesale would pull every variable of the stack into this process
+# environment for no reason: read_env takes the two .env keys actually needed.
 
 read_env() {
     local key="$1" line
@@ -75,11 +81,17 @@ read_env() {
     printf '%s' "${line#*=}"
 }
 
-[ -r "${ENV_FILE}" ] || fail "cannot read ${ENV_FILE}"
+[ -r "${ENV_FILE}" ]    || fail "cannot read ${ENV_FILE}"
+[ -r "${SECRET_FILE}" ] || fail "cannot read ${SECRET_FILE}"
 
 NTFY_TOPIC="$(read_env NTFY_TOPIC)" || NTFY_TOPIC=""
 DB_USER="$(read_env DB_USERNAME)" || fail "DB_USERNAME missing from ${ENV_FILE}"
-MYSQL_PWD="$(read_env DB_PASSWORD)" || fail "DB_PASSWORD missing from ${ENV_FILE}"
+# $(< file) rather than $(cat file): no subprocess, and command substitution
+# strips trailing newlines, so a file written with a stray line break still
+# yields the exact password. A single parasitic byte here would produce an
+# authentication failure whose cause is hard to spot.
+MYSQL_PWD="$(< "${SECRET_FILE}")"
+[ -n "${MYSQL_PWD}" ] || fail "${SECRET_FILE} is empty"
 export MYSQL_PWD
 # MYSQL_PWD is passed to docker by NAME, never as -p<value>: command-line
 # arguments are world-readable in /proc for the lifetime of the process.
