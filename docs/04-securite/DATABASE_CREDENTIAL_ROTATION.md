@@ -33,6 +33,11 @@ accounts this procedure expects. `mysql_password` is mounted a second time on
 `taskflow-api` as `db.password`, and read there at **every start**, along with
 `jwt_secret`. `scripts/backup-db.sh` reads the same file directly.
 
+Their permissions are not uniform. `mysql_root_password` is mode 600, owner and
+group `mehdi`. The other two are mode 640 with group 999, so that the
+`taskflow-api` container, which runs as UID and GID 999, can read them. Step 5
+explains why, and getting this wrong is what makes the API refuse to start.
+
 Rotating the application password therefore means running `ALTER USER` **and**
 updating one file. There is a single file, never two, so the API and the database
 cannot end up disagreeing. Skipping the file update leaves the running stack
@@ -219,18 +224,33 @@ date -u +'%Y-%m-%dT%H:%M:%SZ'
 
 ```bash
 printf '%s' "$NEW_APP_PWD" > /home/mehdi/secrets/mysql_password
-chmod 600 /home/mehdi/secrets/mysql_password
+sudo chgrp 999 /home/mehdi/secrets/mysql_password
+chmod 640 /home/mehdi/secrets/mysql_password
 ```
 
 `printf '%s'` without a newline, for the same reason as the root file in step 3.
+
+**The mode here is 640, not 600.** Compose mounts a secret preserving the source
+file's owner and mode, and `taskflow-api` runs as `taskflow`, UID and GID 999,
+which is neither the owner nor a member of `mehdi`'s group. At 600 the container
+finds the file and cannot read it, and the API refuses to start with
+`java.nio.file.AccessDeniedException`. Group 999 gives the container read access
+while the file stays owned by `mehdi`, who reads it as owner for the backup
+script. `sudo` is needed for `chgrp` because `mehdi` is not a member of group
+999. See issue #40.
+
+`mysql_root_password` stays at 600 because nothing reads it as an unprivileged
+user: the MySQL image reads it as root before dropping to `mysql`.
+
+Redirecting into an existing file leaves its owner, group and mode alone, so
+these two commands are a safety net rather than a strict necessity. An editor
+that recreates the file instead of rewriting it in place does not preserve them,
+which is exactly when this matters.
 
 This single file serves three consumers: `taskflow-db` on a rebuild from scratch,
 `taskflow-api` at every start, and `scripts/backup-db.sh` at every run. Nothing
 else has to be edited. `/opt/taskflow/.env` holds no password since issue #38,
 and `MYSQL_ROOT_PASSWORD` left it at issue #20.
-
-`chmod 600` is mandatory after any edit, on both secret files. Editors do not
-preserve permissions.
 
 Validate before recreating:
 
@@ -317,7 +337,8 @@ printf "ALTER USER 'taskflow'@'%%' IDENTIFIED BY '%s';\n" "$OLD_APP_PWD" \
 ```
 
 Then write the previous value back into `/home/mehdi/secrets/mysql_password`
-with `printf '%s'`, `chmod 600`, and run `docker compose up -d` again.
+with `printf '%s'`, restore `chgrp 999` and `chmod 640` as in step 5, and run
+`docker compose up -d` again.
 
 The dump from step 1 is only needed if the database itself was damaged, which
 credential rotation does not do. It is insurance, not part of the normal path.
@@ -335,6 +356,7 @@ credential rotation does not do. It is insurance, not part of the normal path.
 | `root@'%'` reappears after a rebuild | `MYSQL_ROOT_HOST` defaults to `%` in the image | Pinned to `localhost` since #29. If it comes back, check that variable first |
 | A rebuild from scratch produces accounts with old passwords | `ALTER USER` was run without updating the files under `/home/mehdi/secrets/` | Rotate both: the statement and the file |
 | The password in a secret file is rejected | A trailing newline was written into it, and the MySQL image reads the file verbatim | Rewrite with `printf '%s'`, never `echo` |
+| `java.nio.file.AccessDeniedException` on a file under `/run/secrets/` | The source file is mode 600 owned by `mehdi`, unreadable by the container's UID 999 | `sudo chgrp 999` then `chmod 640` on the source file. Not on `mysql_root_password`, which needs neither |
 | `taskflow-api` never starts, no error of its own | `condition: service_healthy` is blocking on an unhealthy database | Fix the database first, the API is a symptom |
 | The new password works nowhere after editing the secret file only | `MYSQL_USER` and `MYSQL_PASSWORD` are read at volume initialisation only, so the running database never sees the new value | `ALTER USER` first. See the ordering constraint |
 

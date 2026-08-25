@@ -67,12 +67,27 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   `_FILE` variants the MySQL image supports. `taskflow-api` imports the whole
   directory as configuration, so each file name is a property name: the
   application password arrives as `db.password` and the signing key as
-  `jwt.secret`. The source files live in `/home/mehdi/secrets/` at mode `600`,
-  outside the Git working copy. The application password is one file mounted on
-  both services under two different names, never two files, so a rotation
-  cannot leave the two disagreeing. A missing file is not silently tolerated:
-  the API refuses to start and names the property it could not resolve. See
-  issues #20 and #38.
+  `jwt.secret`. The source files live in `/home/mehdi/secrets/`, outside the Git
+  working copy. The application password is one file mounted on both services
+  under two different names, never two files, so a rotation cannot leave the two
+  disagreeing. A missing file is not silently tolerated: the API refuses to
+  start and names the property it could not resolve. See issues #20 and #38.
+- **Least readable mode each consumer allows** — The source files do not share
+  one mode. Compose mounts a secret preserving the source file's owner and mode,
+  so the mode is dictated by the identity of the process that reads it.
+  `mysql_root_password` is `600`, owner and group `mehdi`: the MySQL image reads
+  it as root before dropping to `mysql`, so no wider access is needed.
+  `mysql_password` and `jwt_secret` are `640` with group `999`, because
+  `taskflow-api` runs as `taskflow`, UID and GID 999, and never has root: at
+  `600` the container finds its files and cannot read them, and the API refuses
+  to start with `java.nio.file.AccessDeniedException`. The files stay owned by
+  `mehdi`, who reads `mysql_password` as owner for the backup script, so neither
+  consumer gets more than it needs. GID 999 happens to be `systemd-journal` on
+  the host, a coincidence of numbering rather than a decision; that group has no
+  members, which `getent group systemd-journal` confirms, so `640` grants read
+  access to no account on the VPS. The value 999 is inherited from the
+  `taskflow-api` base image rather than declared, so it is verified with
+  `docker run --rm --entrypoint id` rather than assumed. See issue #40.
 - **Passwordless, unprivileged healthcheck account** — The `taskflow-db`
   healthcheck runs `mysqladmin ping -h 127.0.0.1 -u healthcheck`. The account
   holds `USAGE` only and has no password, so nothing secret is passed and
@@ -122,8 +137,8 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 - The backup script reads the application password from
   `/home/mehdi/secrets/mysql_password`, the same file Compose mounts into both
   containers, and the rest of its configuration from the `.env`. Its systemd
-  unit runs as `mehdi` rather than root, owner of both files at `600`, so that
-  permission remains a real control rather than a formality
+  unit runs as `mehdi` rather than root, owner of both files, so that permission
+  remains a real control rather than a formality
 - The ntfy topic used for backup alerts is treated as a secret and stored in
   `.env`: the public ntfy service has no authentication, so anyone knowing the
   topic name can read and post to it
@@ -146,8 +161,7 @@ All application-level security is documented in the respective repositories:
 | **Defense in Depth** | UFW + Fail2ban + SSH keys + Docker network isolation + Nginx reverse proxy |
 | **Least Privilege** | Non-root OS user, non-root containers, scoped GitHub token, internal MySQL |
 | **Fail Secure** | Root login disabled, password auth disabled, all ports closed by default |
-| **Secret Hygiene** | Secrets mounted as files under `/run/secrets/`, never in `environment`; `.env` at `600`, excluded from git, no defaults for production secrets |
-| **Encryption in Transit** | HTTPS enforced, HSTS enabled, Let's Encrypt auto-renewal |
+| **Secret Hygiene** | Secrets mounted as files under `/run/secrets/`, never in `environment`; each source file at the least readable mode its consumer allows; `.env` at `600`, excluded from git, no defaults for production secrets || **Encryption in Transit** | HTTPS enforced, HSTS enabled, Let's Encrypt auto-renewal |
 
 ---
 
