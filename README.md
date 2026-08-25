@@ -203,12 +203,21 @@ and not a decision: the same GID is `taskflow` inside the container. That group
 has no members on Ubuntu, which `getent group systemd-journal` confirms, so
 mode 640 grants read access to no account on the VPS.
 
-The value 999 comes from the `taskflow-api` Dockerfile and is verifiable at any
-time:
+The value 999 is declared in the production Dockerfile of `taskflow-api`, by
+`groupadd -r -g 999` and `useradd -r -u 999`. A change there fails the build
+rather than shifting silently, so the dependency is explicit on both sides. It
+stays verifiable at any time:
 
 ```bash
 docker run --rm --entrypoint id ghcr.io/mehdi-rochereau/taskflow-api:latest
 ```
+
+Only the production image carries those identifiers. The local development
+Dockerfile of `taskflow-api` is Alpine-based and produces `uid=100 gid=101`,
+Alpine's tools counting up from 100 where Debian's `useradd -r` counts down from
+999. The two have always differed. Mounting these same secret files against a
+locally built image therefore yields an `AccessDeniedException` that is not a
+regression, and the group has to be adjusted to that image's own GID.
 
 `docker compose config` fails if any file is missing, so the omission is caught
 before anything starts. A missing file at runtime is caught too, but later: the

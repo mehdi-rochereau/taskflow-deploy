@@ -85,9 +85,14 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   consumer gets more than it needs. GID 999 happens to be `systemd-journal` on
   the host, a coincidence of numbering rather than a decision; that group has no
   members, which `getent group systemd-journal` confirms, so `640` grants read
-  access to no account on the VPS. The value 999 is inherited from the
-  `taskflow-api` base image rather than declared, so it is verified with
-  `docker run --rm --entrypoint id` rather than assumed. See issue #40.
+  access to no account on the VPS. The value 999 is declared in the
+  `taskflow-api` production Dockerfile, by `groupadd -r -g 999` and
+  `useradd -r -u 999`, so a change there fails the build rather than shifting
+  silently as an inherited value would. The dependency is stated on both sides,
+  in that repository's `SECURITY.md` as well as here.
+  `docker run --rm --entrypoint id ghcr.io/mehdi-rochereau/taskflow-api:latest`
+  remains worth running as a check, it is simply no longer the only safeguard.
+  See issues #40 and #42.
 - **Passwordless, unprivileged healthcheck account** — The `taskflow-db`
   healthcheck runs `mysqladmin ping -h 127.0.0.1 -u healthcheck`. The account
   holds `USAGE` only and has no password, so nothing secret is passed and
@@ -161,7 +166,8 @@ All application-level security is documented in the respective repositories:
 | **Defense in Depth** | UFW + Fail2ban + SSH keys + Docker network isolation + Nginx reverse proxy |
 | **Least Privilege** | Non-root OS user, non-root containers, scoped GitHub token, internal MySQL |
 | **Fail Secure** | Root login disabled, password auth disabled, all ports closed by default |
-| **Secret Hygiene** | Secrets mounted as files under `/run/secrets/`, never in `environment`; each source file at the least readable mode its consumer allows; `.env` at `600`, excluded from git, no defaults for production secrets || **Encryption in Transit** | HTTPS enforced, HSTS enabled, Let's Encrypt auto-renewal |
+| **Secret Hygiene** | Secrets mounted as files under `/run/secrets/`, never in `environment`; each source file at the least readable mode its consumer allows; `.env` at `600`, excluded from git, no defaults for production secrets |
+| **Encryption in Transit** | HTTPS enforced, HSTS enabled, Let's Encrypt auto-renewal |
 
 ---
 
