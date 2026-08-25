@@ -56,14 +56,23 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   they are not reachable from outside the VPS.
 - **Private registry** — Docker images are stored privately on GitHub Container
   Registry (ghcr.io) and require authentication to pull.
-- **Read-only secrets** — The `.env` file containing production secrets has
-  permissions `600` (owner read/write only).
-- **File-based database secrets** — `taskflow-db` receives its passwords through
-  Docker Compose secrets, mounted read-only at `/run/secrets/`, rather than as
-  inline environment variables. Docker records `environment` verbatim in
-  `Config.Env`, where `docker inspect` exposes it to anyone able to query the
-  daemon, permanently and regardless of file permissions. The source files live
-  in `/home/mehdi/secrets/` at mode `600`, outside the Git working copy.
+- **No secret in the container environment** — Since issue #38 no service
+  receives a password or a signing key through `environment`. Docker records
+  that block verbatim in `Config.Env`, where `docker inspect` exposes it to
+  anyone able to query the daemon, permanently and regardless of file
+  permissions. The `.env` file, at permissions `600`, now holds only
+  non-secret configuration and the ntfy topic.
+- **File-based secrets** — Both services read their secrets from files mounted
+  read-only under `/run/secrets/`. `taskflow-db` receives them through the
+  `_FILE` variants the MySQL image supports. `taskflow-api` imports the whole
+  directory as configuration, so each file name is a property name: the
+  application password arrives as `db.password` and the signing key as
+  `jwt.secret`. The source files live in `/home/mehdi/secrets/` at mode `600`,
+  outside the Git working copy. The application password is one file mounted on
+  both services under two different names, never two files, so a rotation
+  cannot leave the two disagreeing. A missing file is not silently tolerated:
+  the API refuses to start and names the property it could not resolve. See
+  issues #20 and #38.
 - **Passwordless, unprivileged healthcheck account** — The `taskflow-db`
   healthcheck runs `mysqladmin ping -h 127.0.0.1 -u healthcheck`. The account
   holds `USAGE` only and has no password, so nothing secret is passed and
@@ -97,7 +106,9 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 
 - `.env` is excluded from version control via `.gitignore`
 - `.env` contains no default values for production secrets
-- JWT secret is generated with `openssl rand -hex 64` — 512-bit entropy
+- JWT secret is generated with `openssl rand -hex 64`, 512-bit entropy, and
+  written straight to `/home/mehdi/secrets/jwt_secret` without ever passing
+  through the `.env`
 - Database passwords are 40-character random alphanumeric strings, generated in a
   password manager. Special characters are excluded on purpose: they carry meaning
   in the shell, in `.env` and in SQL, and produce failures that point nowhere near
@@ -108,9 +119,11 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 - No credential is ever passed as a command-line argument. Process arguments are
   world-readable in `/proc` for the lifetime of the process
 - GitHub Container Registry token has minimal scope (`read:packages`, `write:packages`)
-- The backup script reads its credentials from the same `.env` file at `600`,
-  and its systemd unit runs as `mehdi` rather than root, so that file permission
-  remains a real control rather than a formality
+- The backup script reads the application password from
+  `/home/mehdi/secrets/mysql_password`, the same file Compose mounts into both
+  containers, and the rest of its configuration from the `.env`. Its systemd
+  unit runs as `mehdi` rather than root, owner of both files at `600`, so that
+  permission remains a real control rather than a formality
 - The ntfy topic used for backup alerts is treated as a secret and stored in
   `.env`: the public ntfy service has no authentication, so anyone knowing the
   topic name can read and post to it
@@ -133,7 +146,7 @@ All application-level security is documented in the respective repositories:
 | **Defense in Depth** | UFW + Fail2ban + SSH keys + Docker network isolation + Nginx reverse proxy |
 | **Least Privilege** | Non-root OS user, non-root containers, scoped GitHub token, internal MySQL |
 | **Fail Secure** | Root login disabled, password auth disabled, all ports closed by default |
-| **Secret Hygiene** | `.env` at `600`, excluded from git, no defaults for production secrets |
+| **Secret Hygiene** | Secrets mounted as files under `/run/secrets/`, never in `environment`; `.env` at `600`, excluded from git, no defaults for production secrets |
 | **Encryption in Transit** | HTTPS enforced, HSTS enabled, Let's Encrypt auto-renewal |
 
 ---
@@ -172,19 +185,6 @@ Rate limiting is handled at the application level using Bucket4j with in-memory
 storage. A server restart resets all counters. See
 [taskflow-api/SECURITY.md](https://github.com/mehdi-rochereau/taskflow-api/blob/main/SECURITY.md)
 for details.
-
-### Application Database Credential
-
-`taskflow-api` still receives `DB_PASSWORD` as a plain environment variable, so
-it remains readable in `docker inspect taskflow-api`. Unlike the MySQL image,
-Spring Boot reads its configuration at every start rather than once at
-initialisation, so moving it to a file requires changing the application's
-configuration rather than the Compose file. That work belongs to the
-`taskflow-api` repository and is tracked there.
-
-The exposure is limited: reading it requires access to the Docker daemon, which
-already implies root-equivalent privileges on the host. It is recorded here
-because a partial fix that is not documented as partial reads as a complete one.
 
 ---
 

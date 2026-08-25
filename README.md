@@ -151,7 +151,7 @@ nano .env
 chmod 600 .env
 ```
 
-**5. Create the database secret files**
+**5. Create the secret files**
 
 ```bash
 mkdir -p /home/mehdi/secrets
@@ -163,17 +163,32 @@ printf '%s' "$P" > /home/mehdi/secrets/mysql_root_password
 read -rsp "MySQL application password: " P; echo
 printf '%s' "$P" > /home/mehdi/secrets/mysql_password
 
-chmod 600 /home/mehdi/secrets/mysql_root_password /home/mehdi/secrets/mysql_password
+openssl rand -hex 64 | tr -d '\n' > /home/mehdi/secrets/jwt_secret
+
+chmod 600 /home/mehdi/secrets/mysql_root_password \
+          /home/mehdi/secrets/mysql_password \
+          /home/mehdi/secrets/jwt_secret
 unset P
 ```
 
-These two files are mounted into `taskflow-db` as Docker Compose secrets. They
-live outside `/opt/taskflow`, which is a Git working copy of a public
-repository. `printf '%s'` rather than `echo`: the MySQL image reads each file
-verbatim, and a trailing newline would become part of the password.
+These three files are mounted as Docker Compose secrets. They live outside
+`/opt/taskflow`, which is a Git working copy of a public repository.
 
-`docker compose config` fails if either file is missing, so the omission is
-caught before anything starts.
+`mysql_password` is mounted twice, on `taskflow-db` as `mysql_password` and on
+`taskflow-api` as `db.password`. It is the password of the `taskflow` account:
+MySQL uses it to create the account, the API uses it to connect. There is one
+file, never two, so a rotation cannot leave the two services disagreeing.
+
+`jwt_secret` is mounted on `taskflow-api` alone, as `jwt.secret`. Both names
+matter to the character: the API imports the whole directory as configuration,
+so each file name becomes a property name.
+
+`printf '%s'` rather than `echo`, and `tr -d '\n'` after `openssl`: each file is
+read verbatim, and a trailing newline would become part of the value.
+
+`docker compose config` fails if any file is missing, so the omission is caught
+before anything starts. A missing file at runtime is caught too, but later: the
+API refuses to start and names the property it could not resolve.
 
 **6. Authenticate with GitHub Container Registry**
 
@@ -323,18 +338,17 @@ Copy `.env.example` to `.env` and fill in real values.
 | `DB_PORT` | Database port — `3306` |
 | `DB_NAME` | Database name |
 | `DB_USERNAME` | Application database user |
-| `DB_PASSWORD` | Application database password |
-| `JWT_SECRET` | HMAC-SHA512 signing key — minimum 32 characters |
+| `DB_PASSWORD`, `JWT_SECRET` | **Removed.** Since issue #38 both are Docker Compose secrets, files under `/home/mehdi/secrets/`, not variables of this file. `taskflow-api` reads them as `/run/secrets/db.password` and `/run/secrets/jwt.secret` |
 | `JWT_EXPIRATION` | JWT expiry in milliseconds — default `900000` (15 min) |
 | `COOKIE_SECURE` | Enable `Secure` flag on cookies — `true` in production |
 | `REFRESH_TOKEN_EXPIRATION_DAYS` | Refresh token validity — default `7` days |
 | `CORS_ALLOWED_ORIGINS` | Allowed CORS origins, comma-separated — `https://taskflow.mehdi-rochereau.dev,https://api.taskflow.mehdi-rochereau.dev` |
 | `NTFY_TOPIC` | ntfy topic used by the backup script to report failures. Treat as a secret: anyone knowing the name can read and post to it |
 
-Generate a secure JWT secret:
+The JWT secret is generated during step 5 and written straight to its file:
 
 ```bash
-openssl rand -hex 64
+openssl rand -hex 64 | tr -d '\n' > /home/mehdi/secrets/jwt_secret
 ```
 
 Database passwords are not generated this way. Use a password manager, 40
@@ -347,7 +361,11 @@ failures that point nowhere near their cause.
 ## Security
 
 - `.env` is excluded from version control via `.gitignore`
-- `.env` permissions are restricted to `600` (owner read/write only)
+- `.env` permissions are restricted to `600` (owner read/write only), and it
+  holds no password since issue #38
+- No secret is passed as an environment variable to any container. Passwords and
+  the JWT key are mounted as files under `/run/secrets/`, so `docker inspect`
+  exposes a path rather than a value
 - Docker images are private on GitHub Container Registry
 - MySQL port is not exposed outside the Docker network
 - All traffic is encrypted via HTTPS (Let's Encrypt)
