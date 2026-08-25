@@ -1,4 +1,9 @@
-# Environment files — never commit secrets
-.env
-.env.*
-!.env.example
+# Secret files. They belong under /home/mehdi/secrets/ on the VPS and have no
+# reason to appear here, but a copy dropped in the tree while testing would be
+# one `git add .` away from a public repository. GitLeaks catches these at push,
+# once they are already written into history. This catches them before.
+# No leading slash on purpose: the pattern matches at any depth.
+secrets/
+mysql_root_password
+mysql_password
+jwt_secret

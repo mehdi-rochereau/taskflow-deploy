@@ -21,16 +21,22 @@ Where each value lives:
 
 | Account | Consumed by | Stored in |
 |---|---|---|
-| `taskflow@'%'` | the API, at every start | `DB_PASSWORD` in `/opt/taskflow/.env`, and `/home/mehdi/secrets/mysql_password` |
+| `taskflow@'%'` | the API and the backup script, at every start | `/home/mehdi/secrets/mysql_password`, and the password manager |
 | `root@localhost` | nothing, by design | `/home/mehdi/secrets/mysql_root_password`, and the password manager |
 | `healthcheck@'%'` | the `taskflow-db` healthcheck, every 10 seconds | nowhere, the account has no password |
 
-The two files under `/home/mehdi/secrets/` are mounted into `taskflow-db` as
-Docker Compose secrets. The MySQL image reads them **only when the data volume is
-first initialised**, so on the existing volume they are inert. They exist so that
-a rebuild from scratch produces the accounts this procedure expects. Rotating a
-password means running `ALTER USER` **and** updating the file, otherwise the two
-diverge silently and only a rebuild reveals it.
+The three files under `/home/mehdi/secrets/` are mounted as Docker Compose
+secrets. `mysql_root_password` and `mysql_password` go to `taskflow-db`, which
+reads them **only when the data volume is first initialised**, so on the existing
+volume they are inert: they exist so that a rebuild from scratch produces the
+accounts this procedure expects. `mysql_password` is mounted a second time on
+`taskflow-api` as `db.password`, and read there at **every start**, along with
+`jwt_secret`. `scripts/backup-db.sh` reads the same file directly.
+
+Rotating the application password therefore means running `ALTER USER` **and**
+updating one file. There is a single file, never two, so the API and the database
+cannot end up disagreeing. Skipping the file update leaves the running stack
+working and breaks the next rebuild, silently.
 
 ---
 
@@ -48,14 +54,14 @@ diverge silently and only a rebuild reveals it.
 
 `MYSQL_USER` and `MYSQL_PASSWORD` are read by the MySQL image **only when the
 data volume is first initialised**. The `taskflow-db-data` volume has been
-initialised since the first deployment. Editing `.env` and restarting the stack
-therefore changes nothing on the server: the credentials stored in the `mysql`
-system schema stay as they are, and the API simply fails to authenticate.
+initialised since the first deployment. Editing the secret file and restarting 
+the stack therefore changes nothing on the server: the credentials stored in the 
+`mysql` system schema stay as they are, and the API simply fails to authenticate.
 
 The correct order is:
 
 1. `ALTER USER` against the **running** server
-2. then `/opt/taskflow/.env` and the files under `/home/mehdi/secrets/`
+2. then the file under `/home/mehdi/secrets/`
 3. then container recreation
 
 Any other order breaks the API's connection to the database.
@@ -209,30 +215,22 @@ verbatim, and a trailing newline becomes part of the password.
 date -u +'%Y-%m-%dT%H:%M:%SZ'
 ```
 
-### 5. Update the environment file
-
-```bash
-nano /opt/taskflow/.env
-chmod 600 /opt/taskflow/.env
-```
-
-One line changes: `DB_PASSWORD`, consumed by the API at every start.
-
-`MYSQL_ROOT_PASSWORD` is no longer in this file. Since issue #20 the database
-receives its passwords through Docker Compose secrets, and `docker inspect` shows
-only paths. The root value lives in `/home/mehdi/secrets/mysql_root_password` and
-in the password manager, nowhere else.
-
-Also update the application secret file, for the same reason as the root one in
-step 3:
+### 5. Update the secret file
 
 ```bash
 printf '%s' "$NEW_APP_PWD" > /home/mehdi/secrets/mysql_password
 chmod 600 /home/mehdi/secrets/mysql_password
 ```
 
-`chmod 600` is mandatory after any edit, on the `.env` and on both secret files.
-Editors do not preserve permissions.
+`printf '%s'` without a newline, for the same reason as the root file in step 3.
+
+This single file serves three consumers: `taskflow-db` on a rebuild from scratch,
+`taskflow-api` at every start, and `scripts/backup-db.sh` at every run. Nothing
+else has to be edited. `/opt/taskflow/.env` holds no password since issue #38,
+and `MYSQL_ROOT_PASSWORD` left it at issue #20.
+
+`chmod 600` is mandatory after any edit, on both secret files. Editors do not
+preserve permissions.
 
 Validate before recreating:
 
@@ -249,8 +247,8 @@ docker compose config --quiet ; echo "exit=$?"
 docker compose up -d
 ```
 
-Compose detects the environment change and recreates `taskflow-db` and
-`taskflow-api`. `taskflow-ui` is untouched: it stays up but serves a
+Compose recreates `taskflow-db` and `taskflow-api` because the content of a
+mounted secret changed. `taskflow-ui` is untouched: it stays up but serves a
 non-functional interface until the API is back.
 
 ### 7. Record the end of the outage window
@@ -318,8 +316,8 @@ printf "ALTER USER 'taskflow'@'%%' IDENTIFIED BY '%s';\n" "$OLD_APP_PWD" \
   | docker exec -i -e MYSQL_PWD taskflow-db mysql -u root
 ```
 
-Then restore the previous value of `DB_PASSWORD` in `/opt/taskflow/.env`,
-`chmod 600`, and run `docker compose up -d` again.
+Then write the previous value back into `/home/mehdi/secrets/mysql_password`
+with `printf '%s'`, `chmod 600`, and run `docker compose up -d` again.
 
 The dump from step 1 is only needed if the database itself was damaged, which
 credential rotation does not do. It is insurance, not part of the normal path.
@@ -338,7 +336,7 @@ credential rotation does not do. It is insurance, not part of the normal path.
 | A rebuild from scratch produces accounts with old passwords | `ALTER USER` was run without updating the files under `/home/mehdi/secrets/` | Rotate both: the statement and the file |
 | The password in a secret file is rejected | A trailing newline was written into it, and the MySQL image reads the file verbatim | Rewrite with `printf '%s'`, never `echo` |
 | `taskflow-api` never starts, no error of its own | `condition: service_healthy` is blocking on an unhealthy database | Fix the database first, the API is a symptom |
-| The new password works nowhere after editing `.env` only | `MYSQL_USER` and `MYSQL_PASSWORD` are read at volume initialisation only | `ALTER USER` first. See the ordering constraint |
+| The new password works nowhere after editing the secret file only | `MYSQL_USER` and `MYSQL_PASSWORD` are read at volume initialisation only, so the running database never sees the new value | `ALTER USER` first. See the ordering constraint |
 
 ---
 

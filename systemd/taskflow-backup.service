@@ -10,8 +10,9 @@ Requires=docker.service
 [Service]
 Type=oneshot
 
-# Not root. The script reads /opt/taskflow/.env, mode 600, owned by mehdi.
-# Running as root would work but would make the file's permissions irrelevant
+# Not root. The script reads /opt/taskflow/.env and
+# /home/mehdi/secrets/mysql_password, both mode 600, both owned by mehdi.
+# Running as root would work but would make the files' permissions irrelevant
 # as a control: the credential would be readable by a process that did not
 # need the privilege.
 User=mehdi
