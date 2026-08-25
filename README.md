@@ -165,8 +165,11 @@ printf '%s' "$P" > /home/mehdi/secrets/mysql_password
 
 openssl rand -hex 64 | tr -d '\n' > /home/mehdi/secrets/jwt_secret
 
-chmod 600 /home/mehdi/secrets/mysql_root_password \
-          /home/mehdi/secrets/mysql_password \
+chmod 600 /home/mehdi/secrets/mysql_root_password
+
+sudo chgrp 999 /home/mehdi/secrets/mysql_password \
+               /home/mehdi/secrets/jwt_secret
+chmod 640 /home/mehdi/secrets/mysql_password \
           /home/mehdi/secrets/jwt_secret
 unset P
 ```
@@ -185,6 +188,27 @@ so each file name becomes a property name.
 
 `printf '%s'` rather than `echo`, and `tr -d '\n'` after `openssl`: each file is
 read verbatim, and a trailing newline would become part of the value.
+
+The permissions are not uniform, and the difference is not cosmetic. Compose
+mounts a secret preserving the source file's owner and mode. `taskflow-db` reads
+its two files as root before dropping to `mysql`, so mode 600 is enough there.
+`taskflow-api` runs as `taskflow`, UID and GID 999, and never has root, so at
+600 it finds its files and cannot read them: the API refuses to start with
+`java.nio.file.AccessDeniedException` naming the file. Group 999 with mode 640
+gives the container read access while the files stay owned by `mehdi`, who reads
+`mysql_password` as owner for the backup script.
+
+Group 999 is `systemd-journal` on the host, which is a coincidence of numbering
+and not a decision: the same GID is `taskflow` inside the container. That group
+has no members on Ubuntu, which `getent group systemd-journal` confirms, so
+mode 640 grants read access to no account on the VPS.
+
+The value 999 comes from the `taskflow-api` Dockerfile and is verifiable at any
+time:
+
+```bash
+docker run --rm --entrypoint id ghcr.io/mehdi-rochereau/taskflow-api:latest
+```
 
 `docker compose config` fails if any file is missing, so the omission is caught
 before anything starts. A missing file at runtime is caught too, but later: the
