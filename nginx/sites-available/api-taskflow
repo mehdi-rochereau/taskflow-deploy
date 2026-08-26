@@ -1,0 +1,69 @@
+# Reverse proxy for the TaskFlow API.
+#
+# api.taskflow.mehdi-rochereau.dev -> taskflow-api container on 127.0.0.1:8082
+#
+# This file is versioned in taskflow-deploy under nginx/sites-available/.
+# Edit it there, never directly on the VPS: /opt/taskflow is a Git working copy
+# and the CD pipelines run git pull --ff-only, which fails on a local edit.
+
+# ── HTTPS ────────────────────────────────────────────────────────────────────
+server {
+    listen 443 ssl http2;
+    server_name api.taskflow.mehdi-rochereau.dev;
+
+    # http2 as a listen parameter and not the http2 directive. The directive
+    # appeared in nginx 1.25.1, and that same version deprecated this
+    # parameter. This server runs 1.24.0 from the Ubuntu 24.04 repositories,
+    # where http2 on; fails with unknown directive. Swap the two at a future
+    # Ubuntu upgrade, not before.
+
+    include snippets/taskflow-tls.conf;
+    include snippets/taskflow-security-headers.conf;
+
+    # The API sets five security headers of its own: X-Content-Type-Options,
+    # X-Frame-Options, Content-Security-Policy, Referrer-Policy and
+    # X-XSS-Protection. They are deliberately not repeated here, duplicating
+    # them would produce two of each on every response.
+    #
+    # HSTS is the exception the proxy has to carry: Spring Security withholds
+    # it on a request it does not consider secure, and this proxy speaks plain
+    # HTTP to the container.
+
+    location / {
+        proxy_pass http://localhost:8082;
+        include snippets/taskflow-proxy.conf;
+    }
+
+    # robots.txt is served by this host only. The frontend serves a public
+    # landing page and must stay indexable; this host serves an API and a
+    # Swagger UI, which have no reason to appear in search results.
+    #
+    # The security headers snippet is included again here, and this is not
+    # redundant. An add_header in a child block cancels every add_header
+    # inherited from its parent, so the add_header below would silently strip
+    # HSTS from this one URL. Nginx gives no warning. Removing this include
+    # produces a defect that no configuration test catches.
+    location = /robots.txt {
+        include snippets/taskflow-security-headers.conf;
+        add_header Content-Type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+}
+
+# ── HTTP ─────────────────────────────────────────────────────────────────────
+server {
+    listen 80;
+    server_name api.taskflow.mehdi-rochereau.dev;
+
+    include snippets/taskflow-acme.conf;
+
+    # Everything else is redirected to HTTPS. 301 and not 302: the redirect is
+    # permanent and browsers may cache it, which is the intent.
+    #
+    # This replaces the if block Certbot generated. An if at server level is
+    # evaluated in the rewrite phase, therefore before any location is
+    # selected, and captured the ACME challenge too.
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
