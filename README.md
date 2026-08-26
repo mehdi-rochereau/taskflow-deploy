@@ -70,9 +70,11 @@ taskflow-deploy/
 │   ├── conf.d/            # Server-wide hardening, loaded into the http block
 │   ├── sites-available/   # One vhost per host name, plus the catch-all
 │   ├── snippets/          # Shared blocks included by the vhosts
+│   ├── NGINX_CONF_CHANGES.md  # Deliberate divergences from the packaged nginx.conf
 │   └── .gitattributes     # Line ending configuration
 ├── scripts/
 │   ├── backup-db.sh       # Automated database backup
+│   ├── check-nginx-sync.sh    # Compares nginx/ with what is deployed
 │   ├── deploy.sh          # Production deployment script
 │   └── .gitattributes     # Line ending configuration
 └── systemd/
@@ -419,6 +421,53 @@ seconds.
 docker compose ps
 docker compose logs taskflow-api --tail=50
 ```
+
+**Updating the Nginx configuration**
+
+Nginx does not read this repository. A change to a file under `nginx/` reaches
+production only when it is copied to `/etc/nginx` by hand, after the working
+copy has been updated:
+
+```bash
+cd /opt/taskflow
+git pull --ff-only
+
+sudo cp nginx/snippets/taskflow-*.conf /etc/nginx/snippets/
+sudo cp nginx/conf.d/10-hardening.conf /etc/nginx/conf.d/
+sudo cp nginx/sites-available/00-catch-all /etc/nginx/sites-available/
+sudo cp nginx/sites-available/taskflow /etc/nginx/sites-available/
+sudo cp nginx/sites-available/api-taskflow /etc/nginx/sites-available/
+
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`nginx -t` before any reload, without exception: it is what stops a broken
+configuration from ever being loaded. A reload drops no in-flight connection,
+unlike a restart, and it is what makes the two safe to run on a live server.
+
+Wait a second before checking the result. A reload starts new worker processes
+and lets the old ones finish what they are serving, so a request sent
+immediately can be answered by the previous configuration and suggest a failure
+that is not one.
+
+**Checking that the server matches the repository**
+
+```bash
+cd /opt/taskflow
+./scripts/check-nginx-sync.sh
+```
+
+Exit code `0` means the eight versioned files match what is deployed. The script
+only reads, and reports both a divergent file and one missing from either side.
+
+Three things are outside its reach and have to be checked by hand. The first is
+`/etc/nginx/nginx.conf`, a dpkg conffile that is not versioned here: its
+deliberate divergences are listed in
+[`nginx/NGINX_CONF_CHANGES.md`](nginx/NGINX_CONF_CHANGES.md) and audited with
+`sudo nginx -T | grep ssl_protocols`. The second is the absence of the
+`sites-enabled/default` symlink, since an absence cannot be versioned. The third
+is which vhosts are actually enabled: a file can match this check perfectly and
+serve nothing at all, never having been symlinked.
 
 ---
 
