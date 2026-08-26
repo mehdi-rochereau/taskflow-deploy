@@ -52,7 +52,14 @@ server {
 
 # ── HTTPS ────────────────────────────────────────────────────────────────────
 server {
-    listen 443 ssl default_server;
+    # http2 here even though this block never sends a response. Listen options
+    # attach to the socket, not to the server block, and a socket is shared by
+    # every block listening on the same address and port: the first one loaded
+    # fixes the options for all of them. This block loads first, so omitting
+    # http2 here disables HTTP/2 on both real vhosts and makes nginx -t warn
+    # "protocol options redefined for 0.0.0.0:443". Tested on the VPS on
+    # 26 August 2026.
+    listen 443 ssl http2 default_server;
     server_name _;
 
     # The certificate is required even though every request is refused. TLS
@@ -61,9 +68,6 @@ server {
     # reused: a client reaching this block sees a certificate valid for two
     # names it did not ask for, gets a name mismatch warning, and is dropped.
     # That is the intended outcome.
-    #
-    # http2 is deliberately absent. Negotiating a protocol on a connection that
-    # will be closed without a response buys nothing.
     include snippets/taskflow-tls.conf;
 
     # No security headers here. Nothing is ever sent, so nothing can carry one.
