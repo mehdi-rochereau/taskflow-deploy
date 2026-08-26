@@ -68,7 +68,7 @@ taskflow-deploy/
 │   └── images/
 ├── nginx/                 # Reverse proxy configuration, mirrored to /etc/nginx
 │   ├── conf.d/            # Server-wide hardening, loaded into the http block
-│   ├── sites-available/   # One vhost per host name
+│   ├── sites-available/   # One vhost per host name, plus the catch-all
 │   ├── snippets/          # Shared blocks included by the vhosts
 │   └── .gitattributes     # Line ending configuration
 ├── scripts/
@@ -243,17 +243,41 @@ repository with nothing to signal it.
 ```bash
 sudo cp nginx/snippets/taskflow-*.conf /etc/nginx/snippets/
 sudo cp nginx/conf.d/10-hardening.conf /etc/nginx/conf.d/
+sudo cp nginx/sites-available/00-catch-all /etc/nginx/sites-available/
 sudo cp nginx/sites-available/taskflow /etc/nginx/sites-available/
 sudo cp nginx/sites-available/api-taskflow /etc/nginx/sites-available/
 
-sudo chown root:root /etc/nginx/snippets/taskflow-*.conf /etc/nginx/conf.d/10-hardening.conf /etc/nginx/sites-available/taskflow /etc/nginx/sites-available/api-taskflow
-sudo chmod 644 /etc/nginx/snippets/taskflow-*.conf /etc/nginx/conf.d/10-hardening.conf /etc/nginx/sites-available/taskflow /etc/nginx/sites-available/api-taskflow
+sudo chown root:root /etc/nginx/snippets/taskflow-*.conf \
+                     /etc/nginx/conf.d/10-hardening.conf \
+                     /etc/nginx/sites-available/00-catch-all \
+                     /etc/nginx/sites-available/taskflow \
+                     /etc/nginx/sites-available/api-taskflow
 
+sudo chmod 644 /etc/nginx/snippets/taskflow-*.conf \
+               /etc/nginx/conf.d/10-hardening.conf \
+               /etc/nginx/sites-available/00-catch-all \
+               /etc/nginx/sites-available/taskflow \
+               /etc/nginx/sites-available/api-taskflow
+
+sudo ln -s /etc/nginx/sites-available/00-catch-all /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/taskflow /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/api-taskflow /etc/nginx/sites-enabled/
 
+sudo rm /etc/nginx/sites-enabled/default
+
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+Removing the `default` symlink is not optional. That file carries
+`default_server` on port 80, and Nginx refuses two blocks claiming the role on
+the same address and port pair: leaving it enabled fails `nginx -t` with
+`a duplicate default server for 0.0.0.0:80`. The file itself stays in
+`sites-available`, where the package keeps updating it.
+
+Removing it also stops Nginx listening on IPv6, that vhost being the only one
+that carried `listen [::]:80`. Neither host name has an AAAA record, so nothing
+legitimate arrives that way. Adding one later means adding `listen [::]` to the
+catch-all and to both vhosts, in the same change.
 
 One change to `/etc/nginx/nginx.conf` is not covered by these files. Its
 `ssl_protocols` line ships with `TLSv1 TLSv1.1 TLSv1.2 TLSv1.3`; the first two

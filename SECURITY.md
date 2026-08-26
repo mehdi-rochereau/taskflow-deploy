@@ -28,8 +28,13 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   privileges. Direct root login is disabled.
 - **SSH key authentication only** — Password authentication is disabled in
   `/etc/ssh/sshd_config`. Only Ed25519 public key authentication is accepted.
-- **UFW firewall** — Only ports 22 (SSH), 80 (HTTP) and 443 (HTTPS) are open.
-  All other inbound traffic is blocked by default.
+- **UFW firewall** — Only ports 22 (SSH), 80 (HTTP) and 443 (HTTPS) are open,
+  on IPv4 and IPv6 alike. All other inbound traffic is blocked by default.
+  Nginx listens on IPv4 only since 26 August 2026: neither host name has an
+  AAAA record, so no legitimate traffic arrives over IPv6, and a socket that
+  does not exist is safer than one answering. The VPS does hold a global IPv6
+  address, so adding an AAAA record later means adding `listen [::]` to the
+  catch-all and to both vhosts, in the same change. See issue #37.
 - **Fail2ban** — Automatically bans IPs after 5 failed SSH attempts within 10 minutes.
   Ban duration: 1 hour.
 - **Single administrative account** — `root@'%'` was dropped on 15 August 2026.
@@ -132,6 +137,16 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 
 - **Reverse proxy** — Nginx acts as the sole entry point. Backend services are
   not directly accessible from the internet.
+- **Catch-all vhost** — A request carrying an unknown host name, or sent to the
+  bare IP address of the VPS, is closed with `444` and receives no response at
+  all, not even a status line. Until 26 August 2026 no block claimed the
+  `default_server` role on port 443, so Nginx gave it to the first `listen 443`
+  it loaded and every such request was served the API: the error log holds
+  requests for `/config.php` and `/wp-content/...` arriving with
+  `host: 178.105.75.81` and routed to the API upstream. A `403` or a `404` would
+  still confirm that a web server answers on that address; `444` tells a scanner
+  nothing. The catch-all also holds the role on port 80, which the Debian
+  `default` vhost held until it was disabled in the same change. See issue #37.
 - **`server_tokens off`** — The Nginx version is hidden from the `Server` header
   and from the body of Nginx-generated error pages. The header still reads
   `nginx`: the directive hides the version, not the product. It is set in

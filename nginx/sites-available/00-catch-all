@@ -1,0 +1,78 @@
+# Catch-all vhost, refusing every request carrying an unknown host name.
+#
+# Without it Nginx assigns the default_server role on port 443 to the first
+# listen 443 block it loads, which the alphabetical order of sites-enabled made
+# api-taskflow. Every HTTPS request to the bare IP address of the VPS was
+# therefore served the API, Spring headers included. The error log carries the
+# evidence: a request for /config.php arriving with host: "178.105.75.81" and
+# routed to the API upstream.
+#
+# The 00- prefix is for readability only. Once default_server is declared
+# explicitly the load order plays no part, and relying on the file name to carry
+# the behaviour would be a trap for whoever renames it.
+#
+# This file replaces the Debian default vhost, whose symlink must be removed
+# from sites-enabled at the same time. That file carries default_server on port
+# 80, and Nginx refuses two blocks claiming the role on the same address and
+# port pair: leaving both enabled fails nginx -t with "a duplicate default
+# server for 0.0.0.0:80". Removing default alone would be worse still, handing
+# that role to api-taskflow.
+#
+# IPv4 only, deliberately. The Debian default vhost carried listen [::]:80, so
+# removing it stops Nginx listening on IPv6 altogether. That is the intended
+# outcome: neither host name has an AAAA record, so no legitimate traffic
+# arrives that way, and a socket that does not exist is safer than one
+# answering 444. UFW does allow 80 and 443 on IPv6, and the VPS does hold a
+# global IPv6 address, so this decision is what closes that door rather than
+# guarding it. Adding an AAAA record later means adding listen [::] here and in
+# both vhosts, in the same change.
+
+# ── HTTP ─────────────────────────────────────────────────────────────────────
+server {
+    listen 80 default_server;
+    server_name _;
+
+    # server_name _ is not a wildcard. Nginx has no such syntax; the underscore
+    # is simply a name no Host header can match. What makes this block catch
+    # everything is default_server, not this line.
+
+    # ACME validation stays reachable here. Certbot resolves the host name
+    # first, so a challenge for either legitimate name lands on its own vhost
+    # and never here. This include covers the case of a certificate requested
+    # for a name whose vhost does not exist yet.
+    include snippets/taskflow-acme.conf;
+
+    # 444 is Nginx-specific: the connection is closed with no response at all,
+    # not even a status line. A 403 or a 404 would confirm that a web server
+    # answers on this address; 444 tells a scanner nothing.
+    location / {
+        return 444;
+    }
+}
+
+# ── HTTPS ────────────────────────────────────────────────────────────────────
+server {
+    # http2 here even though this block never sends a response. Listen options
+    # attach to the socket, not to the server block, and a socket is shared by
+    # every block listening on the same address and port: the first one loaded
+    # fixes the options for all of them. This block loads first, so omitting
+    # http2 here disables HTTP/2 on both real vhosts and makes nginx -t warn
+    # "protocol options redefined for 0.0.0.0:443". Tested on the VPS on
+    # 26 August 2026.
+    listen 443 ssl http2 default_server;
+    server_name _;
+
+    # The certificate is required even though every request is refused. TLS
+    # negotiation happens before Nginx reads the request, so a 443 block with no
+    # certificate fails to load. The existing Let's Encrypt certificate is
+    # reused: a client reaching this block sees a certificate valid for two
+    # names it did not ask for, gets a name mismatch warning, and is dropped.
+    # That is the intended outcome.
+    include snippets/taskflow-tls.conf;
+
+    # No security headers here. Nothing is ever sent, so nothing can carry one.
+
+    location / {
+        return 444;
+    }
+}
