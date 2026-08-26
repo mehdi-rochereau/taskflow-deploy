@@ -66,6 +66,11 @@ taskflow-deploy/
 │   ├── 02-gestion-de-projet/
 │   ├── 04-securite/
 │   └── images/
+├── nginx/                 # Reverse proxy configuration, mirrored to /etc/nginx
+│   ├── conf.d/            # Server-wide hardening, loaded into the http block
+│   ├── sites-available/   # One vhost per host name
+│   ├── snippets/          # Shared blocks included by the vhosts
+│   └── .gitattributes     # Line ending configuration
 ├── scripts/
 │   ├── backup-db.sh       # Automated database backup
 │   ├── deploy.sh          # Production deployment script
@@ -231,13 +236,42 @@ echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --passwo
 
 **7. Configure Nginx**
 
+The configuration lives in `nginx/` in this repository and is copied to
+`/etc/nginx`. Do not edit the copies on the server: they would drift from the
+repository with nothing to signal it.
+
 ```bash
-sudo nano /etc/nginx/sites-available/taskflow
-sudo nano /etc/nginx/sites-available/api-taskflow
+sudo cp nginx/snippets/taskflow-*.conf /etc/nginx/snippets/
+sudo cp nginx/conf.d/10-hardening.conf /etc/nginx/conf.d/
+sudo cp nginx/sites-available/taskflow /etc/nginx/sites-available/
+sudo cp nginx/sites-available/api-taskflow /etc/nginx/sites-available/
+
+sudo chown root:root /etc/nginx/snippets/taskflow-*.conf /etc/nginx/conf.d/10-hardening.conf /etc/nginx/sites-available/taskflow /etc/nginx/sites-available/api-taskflow
+sudo chmod 644 /etc/nginx/snippets/taskflow-*.conf /etc/nginx/conf.d/10-hardening.conf /etc/nginx/sites-available/taskflow /etc/nginx/sites-available/api-taskflow
+
 sudo ln -s /etc/nginx/sites-available/taskflow /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/api-taskflow /etc/nginx/sites-enabled/
+
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+One change to `/etc/nginx/nginx.conf` is not covered by these files. Its
+`ssl_protocols` line ships with `TLSv1 TLSv1.1 TLSv1.2 TLSv1.3`; the first two
+are dead since 2021 and must be removed:
+
+```bash
+sudo sed -i 's/^\(\s*\)ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;.*/\1ssl_protocols TLSv1.2 TLSv1.3;/' /etc/nginx/nginx.conf
+sudo nginx -T | grep ssl_protocols
+```
+
+That file is a dpkg conffile and is not versioned here, so this half of the
+hardening lives outside Git. The `grep` is the check: the expected output
+carries `TLSv1.2` and `TLSv1.3` only. Run it again after any Nginx package
+upgrade.
+
+The vhosts reference `/var/www/certbot`, created at step 8, and a certificate
+that does not exist yet. Nginx will refuse to start until step 8 has run, which
+is why the reload above may fail on a first installation.
 
 **8. Generate SSL certificates**
 
