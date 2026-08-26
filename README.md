@@ -242,8 +242,57 @@ sudo nginx -t && sudo systemctl reload nginx
 **8. Generate SSL certificates**
 
 ```bash
-sudo certbot --nginx -d taskflow.mehdi-rochereau.dev -d api.taskflow.mehdi-rochereau.dev
+sudo mkdir -p /var/www/certbot/.well-known/acme-challenge
+sudo chown -R root:root /var/www/certbot
+sudo chmod -R 755 /var/www/certbot
+
+sudo certbot certonly --webroot -w /var/www/certbot \
+  -d taskflow.mehdi-rochereau.dev -d api.taskflow.mehdi-rochereau.dev
 ```
+
+`certonly --webroot` and not `--nginx`. The nginx plugin doubles as an installer:
+it edits the vhosts on every renewal to place its challenge, restores them and
+rewrites the certificate lines. Versioned vhosts would drift from production with
+nothing to signal it. In webroot mode Certbot writes a file into a dedicated
+directory and never touches the web server configuration.
+
+The directory is owned by `root` and world-readable. Certbot writes into it as
+root; Nginx, running as `www-data`, only reads. A webroot writable by the account
+serving it would let a compromise of that account publish arbitrary files.
+
+The vhosts serve `/.well-known/acme-challenge/` over plain HTTP and redirect
+everything else, which is what makes the challenge reachable. See the vhost
+configuration in `nginx/`.
+
+**9. Install the renewal hook**
+
+```bash
+sudo tee /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh > /dev/null <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+/usr/sbin/nginx -t
+/bin/systemctl reload nginx
+EOF
+
+sudo chmod 700 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+sudo certbot renew --dry-run --run-deploy-hooks
+```
+
+Required, and easy to forget. Without the nginx installer nothing reloads the web
+server after a renewal, and Nginx keeps serving from memory the certificate it
+loaded at startup. The renewal would succeed on disk while production served an
+expired certificate, with nothing to signal it until browsers refused the site.
+
+Deploy hooks run only when a certificate was actually renewed, so this costs
+nothing on the twice-daily timer. `nginx -t` guards the reload: a configuration
+broken by an unrelated edit must not be loaded by an automated job.
+
+`--run-deploy-hooks` is what makes the dry run exercise the hook. Without it a
+dry run skips deploy hooks entirely, since no certificate is renewed, and would
+validate nothing. `nginx -t` writes to standard error even on success, so Certbot
+reports `Hook 'deploy-hook' ran with error output` on a run that succeeded. The
+exit code is what matters.
 
 ---
 
