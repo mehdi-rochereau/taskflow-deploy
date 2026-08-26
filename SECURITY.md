@@ -115,16 +115,37 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
   cannot drift from production. A deploy hook reloads Nginx after a renewal,
   which the plugin used to do. See issue #44.
 - **HSTS** — `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-  enforced by the API on all responses.
+  set by Nginx on both hosts, with `always` so that error responses carry it
+  too. It tells the browser to refuse plain HTTP on the host before any request
+  is sent, closing the window a redirect leaves open on the first visit of a
+  session.
+  It is set by the reverse proxy and not by the application. Spring Security
+  withholds HSTS on a request it does not consider secure, and the request
+  reaches it over plain HTTP from the proxy; the proxy terminates TLS, so it is
+  the layer that knows the connection is encrypted, and it covers both hosts at
+  once. Until 26 August 2026 this claim named the API as the source and neither
+  host actually sent the header. See issue #31.
+  `preload` is deliberately absent: it would ask browser vendors to hardcode the
+  domain into their binaries, a decision that takes months to reverse.
 
 ### Nginx Security
 
 - **Reverse proxy** — Nginx acts as the sole entry point. Backend services are
   not directly accessible from the internet.
-- **`server_tokens off`** — Nginx version is hidden from response headers.
-- **robots.txt** — Both `taskflow.mehdi-rochereau.dev` and
-  `api.taskflow.mehdi-rochereau.dev` return `Disallow: /` to prevent search
-  engine indexing.
+- **`server_tokens off`** — The Nginx version is hidden from the `Server` header
+  and from the body of Nginx-generated error pages. The header still reads
+  `nginx`: the directive hides the version, not the product. It is set in
+  `nginx/conf.d/10-hardening.conf`, which covers every server block at once,
+  including the ones Nginx generates itself. Until 26 August 2026 this claim was
+  false, the directive being commented out in `nginx.conf` and both hosts
+  answering `nginx/1.24.0 (Ubuntu)`. See issue #31.
+- **robots.txt** — Both hosts return `Disallow: /`, but from different layers.
+  On `api.taskflow.mehdi-rochereau.dev` the reverse proxy serves it directly,
+  which keeps an API and its Swagger UI out of search results: indexing them
+  would publish a map of every entry point for no benefit. On
+  `taskflow.mehdi-rochereau.dev` the file comes from the `taskflow-ui`
+  container, Nginx defining nothing for that URL. Whether a portfolio landing
+  page should stay unindexed is a separate question, owned by that repository.
 
 ### Secret Management
 
