@@ -109,7 +109,11 @@ with Docker, Nginx, Let's Encrypt and Ubuntu 24.04.
 - **HTTPS enforced** — Nginx redirects all HTTP traffic to HTTPS via a permanent
   `301` redirect.
 - **Let's Encrypt SSL** — TLS certificates are issued by Let's Encrypt and renewed
-  automatically via Certbot's systemd timer.
+  automatically via Certbot's systemd timer. Validation uses the webroot method,
+  not the nginx plugin: Certbot writes a challenge file into a root-owned
+  directory and never edits the web server configuration, so the versioned vhosts
+  cannot drift from production. A deploy hook reloads Nginx after a renewal,
+  which the plugin used to do. See issue #44.
 - **HSTS** — `Strict-Transport-Security: max-age=31536000; includeSubDomains`
   enforced by the API on all responses.
 
