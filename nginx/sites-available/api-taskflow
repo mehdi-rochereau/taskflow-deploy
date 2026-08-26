@@ -37,15 +37,22 @@ server {
     # robots.txt is served by this host only. The frontend serves a public
     # landing page and must stay indexable; this host serves an API and a
     # Swagger UI, which have no reason to appear in search results.
-    #
-    # The security headers snippet is included again here, and this is not
-    # redundant. An add_header in a child block cancels every add_header
-    # inherited from its parent, so the add_header below would silently strip
-    # HSTS from this one URL. Nginx gives no warning. Removing this include
-    # produces a defect that no configuration test catches.
     location = /robots.txt {
         include snippets/taskflow-security-headers.conf;
-        add_header Content-Type text/plain;
+
+        # default_type and not add_header. A return 200 with a body makes
+        # Nginx emit a Content-Type of its own, so add_header appended a second
+        # identical one, and HTTP forbids repeating that field. default_type
+        # sets the value instead of adding to it.
+        #
+        # The security headers snippet is included above, and this is not
+        # redundant. An add_header in a child block cancels every add_header
+        # inherited from its parent, so this location would silently lose HSTS.
+        # Nginx gives no warning. Removing the include produces a defect that
+        # no configuration test catches. The include stays even though no
+        # add_header remains here, because adding one back later is exactly the
+        # edit that would reintroduce the defect.
+        default_type text/plain;
         return 200 "User-agent: *\nDisallow: /\n";
     }
 }
