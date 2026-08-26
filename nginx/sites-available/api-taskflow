@@ -30,7 +30,14 @@ server {
     # HTTP to the container.
 
     location / {
-        proxy_pass http://localhost:8082;
+        # 127.0.0.1 and not localhost. /etc/hosts maps localhost to both
+        # 127.0.0.1 and ::1, and Nginx resolves it at configuration load,
+        # keeping both. The container is published on 127.0.0.1 only, so every
+        # proxied request tried ::1 first, took a TCP refusal, and fell back to
+        # IPv4. It worked, and wrote a connect() failed line to the error log
+        # each time: 112 of them in half a day. An error log has to contain
+        # nothing but errors to be read at all. See issue #49.
+        proxy_pass http://127.0.0.1:8082;
         include snippets/taskflow-proxy.conf;
     }
 
