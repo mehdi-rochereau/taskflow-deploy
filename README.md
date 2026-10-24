@@ -100,11 +100,25 @@ taskflow-deploy/
 
 ## Services
 
-| Service | Image | Port | Description |
-|---------|-------|------|-------------|
-| `taskflow-db` | `mysql:8.4` | — | MySQL database (internal only) |
-| `taskflow-api` | `ghcr.io/mehdi-rochereau/taskflow-api:latest` | `8082` | Spring Boot REST API |
-| `taskflow-ui` | `ghcr.io/mehdi-rochereau/taskflow-ui:latest` | `4000` | Angular frontend |
+| Service | Image | Port | Health probe |
+|---------|-------|------|--------------|
+| `taskflow-db` | `mysql:8.4` | — | `mysqladmin ping` as `healthcheck@'%'`, every 10s |
+| `taskflow-api` | `ghcr.io/mehdi-rochereau/taskflow-api:latest` | `8082` | `wget --spider` on `/actuator/health`, every 30s |
+| `taskflow-ui` | `ghcr.io/mehdi-rochereau/taskflow-ui:latest` | `4000` | `curl -sf` on `/healthz`, every 30s |
+
+`taskflow-db` is a MySQL database reachable only from the Docker network,
+`taskflow-api` a Spring Boot REST API and `taskflow-ui` an Angular build served
+by Nginx.
+
+Only the `taskflow-db` probe is load-bearing: `taskflow-api` waits on it through
+a `service_healthy` condition, without which Flyway starts against a database
+that is not yet accepting connections. The other two are for observation. Compose
+never restarts an unhealthy container, and nothing in the stack depends on
+`taskflow-ui`, so its probe exists to make `docker compose ps` readable at a
+glance during an incident.
+
+None of the three reaches production through TLS or the reverse proxy. That check
+belongs to the CD pipelines, which query the public URL from outside the VPS.
 
 ---
 
