@@ -176,12 +176,18 @@ fi
 COUNT="$(printf '%s\n' "${DOOMED}" | wc -l)"
 
 if [ "${DRY_RUN}" -eq 1 ]; then
-    echo "Dry run, ${COUNT} image(s) would be removed:"
-    printf '%s\n' "${DOOMED}" | while read -r id; do
-        docker images --format '{{.ID}}  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}' \
-            | grep "^${id}" || echo "${id}"
-    done
-    echo "Kept: $(printf '%s\n' "${KEEP}" | wc -l) image(s)."
+    echo "Dry run, ${COUNT} TaskFlow image(s) would be removed:"
+    # -a is what makes untagged images visible: docker images hides them by
+    # default, and every candidate here is untagged by definition. Without it
+    # the lookup matched nothing and the listing printed bare ids.
+    LISTING="$(docker images -a --format '{{.ID}}  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}')"
+    while read -r id; do
+        [ -n "${id}" ] || continue
+        printf '%s\n' "${LISTING}" | grep "^${id}" || echo "${id}  <not listed>"
+    done <<< "${DOOMED}"
+    echo "Kept: $(printf '%s\n' "${KEEP}" | wc -l) TaskFlow image(s)."
+    echo "Counts above cover TaskFlow images only, not mysql or base layers;"
+    echo "docker system df counts everything and will report a higher total."
     exit 0
 fi
 
@@ -207,6 +213,7 @@ while read -r id; do
 done <<< "${DOOMED}"
 
 KEPT="$(printf '%s\n' "${KEEP}" | wc -l)"
-echo "Prune complete: ${REMOVED} removed, ${REFUSED} refused, ${KEPT} image(s) kept."
+echo "Prune complete: ${REMOVED} removed, ${REFUSED} refused, ${KEPT} TaskFlow image(s) kept."
+echo "docker system df below counts every image on the host, not only ours."
 docker system df
 exit 0
