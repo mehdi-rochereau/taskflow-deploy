@@ -25,30 +25,6 @@ server {
     include snippets/taskflow-tls.conf;
     include snippets/taskflow-security-headers.conf;
 
-    # Compression is the container's job, not this proxy's. taskflow-ui runs its
-    # own Nginx with gzip on and gzip_vary on, and this proxy relays the
-    # compressed body untouched. Both layers were therefore setting
-    # Vary: Accept-Encoding, and production served the header twice: verified on
-    # 24 October 2026, two identical vary lines for a single
-    # content-encoding: gzip, so nothing was compressed twice, only announced
-    # twice. See issue #54.
-    #
-    # The duplicate bothers no browser and no cache, which is worth stating
-    # rather than overselling the fix. What it was is a responsibility split
-    # across two layers, and the container is the layer that belongs: it knows
-    # its own file types, which this proxy would have to restate and keep in
-    # sync.
-    #
-    # Disabled here and not in conf.d/10-hardening.conf: the api-taskflow vhost
-    # needs that directive, Spring Boot not compressing its own responses, and
-    # the catch-all and the error pages Nginx generates itself keep inheriting
-    # it too. Only this host has a backend that already compresses.
-    #
-    # gzip off alone is enough: gzip_vary only ever emits the header on a
-    # response this server compressed, so turning compression off takes the
-    # header with it.
-    gzip off;
-    
     location / {
         # 127.0.0.1 and not localhost. /etc/hosts maps localhost to both
         # 127.0.0.1 and ::1, and Nginx resolves it at configuration load,
