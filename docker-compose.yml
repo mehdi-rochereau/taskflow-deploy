@@ -126,12 +126,52 @@ services:
     image: ghcr.io/mehdi-rochereau/taskflow-ui:latest
     container_name: taskflow-ui
     restart: unless-stopped
+    # Short form on purpose, so no `condition: service_healthy`. Two reasons.
+    # A degraded showcase still serving the landing and login pages, both
+    # public, is worth more than a frontend that does not start at all. And
+    # deploy.sh runs `up -d --no-deps`, so the condition would only ever be
+    # evaluated on a full `docker compose up -d`, that is after an incident or
+    # a restore, precisely the moment when the fewest blocking conditions are
+    # wanted. Same logic as the --rollback mode of the script. See issue #53.
     depends_on:
       - taskflow-api
     ports:
       - "127.0.0.1:4000:80"
     networks:
       - taskflow-network
+    healthcheck:
+      # Observability, not reliability. Compose never restarts an unhealthy
+      # container and nothing in this stack depends on taskflow-ui, so what this
+      # buys is a `docker compose ps` readable at a glance during an incident.
+      # The real health check stays in the CD pipeline, which queries the public
+      # URL through the VPS Nginx and TLS, a path nothing inside the container
+      # can observe. This probe does not replace it. See issue #53, which
+      # reverses the earlier decision not to declare one here.
+      #
+      # Scope: /healthz answers without touching the disk, so this proves Nginx
+      # is up, NOT that the Angular build was copied into the image. An empty
+      # /usr/share/nginx/html would still report healthy.
+      #
+      # -f is what makes the probe mean anything. Without it curl exits 0 on a
+      # 404 and the check passes while the server answers whatever it likes.
+      # -s only silences the progress meter.
+      #
+      # 127.0.0.1 and not localhost. The container's nginx.conf declares a bare
+      # `listen 80;` with no IPv6 counterpart, and a client resolving localhost
+      # tries ::1 first and finds nobody: `wget --spider http://localhost/healthz`
+      # fails with connection refused inside this container while the site is up,
+      # verified on 24 October 2026. curl happens to fall back to the next
+      # address, which would hide the problem rather than fix it. Anyone
+      # swapping curl for wget here to match taskflow-api would break the probe.
+      # Same trap as proxy_pass in the taskflow vhost, see issue #49.
+      #
+      # start_period 10s: Nginx starts in a fraction of a second, ten seconds is
+      # generous. Failures before it elapses are not counted against retries.
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 # ── Volumes ────────────────────────────────────────────────
 volumes:
