@@ -114,11 +114,26 @@ for service in ${SERVICES}; do
     docker images "${repo}" --format '{{.ID}}' >> "${KEEP_FILE}"
 
     # Untagged images attributed to this service, newest first, capped.
-    docker images --filter dangling=true --format '{{.ID}}' | while read -r id; do
+    #
+    # Collected into a variable first, then filtered. A `while` piped into
+    # `head` dies on SIGPIPE when head exits early, which pipefail reports as a
+    # failure and the ERR trap turns into an abort. Same trap documented twice
+    # in the CD workflow of taskflow-ui.
+    #
+    # The if/fi rather than `[ ... ] && echo`: the latter exits 1 whenever the
+    # test fails, which is most iterations, and under set -e the last command of
+    # a loop body exiting non-zero is enough to trigger the trap.
+    DANGLING="$(docker images --filter dangling=true --format '{{.ID}}')"
+    MATCHED=""
+    while read -r id; do
+        [ -n "${id}" ] || continue
         label="$(docker image inspect "${id}" \
             --format '{{index .Config.Labels "org.opencontainers.image.source"}}' 2>/dev/null || true)"
-        [ "${label}" = "${source_url}" ] && echo "${id}"
-    done | head -n "${KEEP_EXTRA}" >> "${KEEP_FILE}"
+        if [ "${label}" = "${source_url}" ]; then
+            MATCHED="${MATCHED}${id}"$'\n'
+        fi
+    done <<< "${DANGLING}"
+    printf '%s' "${MATCHED}" | head -n "${KEEP_EXTRA}" >> "${KEEP_FILE}"
 done
 
 # Image ids appear in several forms: a full sha256:<64> from docker inspect, a
