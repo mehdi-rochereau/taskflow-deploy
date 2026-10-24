@@ -1,0 +1,33 @@
+[Unit]
+# Oneshot job invoked by taskflow-prune.timer. Never enabled on its own.
+Description=TaskFlow stale image prune
+Documentation=https://github.com/mehdi-rochereau/taskflow-deploy
+# The script talks to the Docker daemon: starting before it is up would fail on
+# every boot-triggered catch-up run.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+
+# Not root. The script only needs to reach the Docker socket, which membership
+# of the docker group grants. mehdi is already a member, added during the
+# initial server setup.
+#
+# Worth stating plainly: membership of the docker group is equivalent to root
+# on this host, since the daemon runs as root and will mount anything asked of
+# it. Running as mehdi rather than root is therefore not a privilege boundary
+# here, it is consistency with taskflow-backup.service and a way to keep the
+# unit from acquiring capabilities it has no use for.
+User=mehdi
+Group=mehdi
+
+ExecStart=/opt/taskflow/scripts/prune-images.sh
+
+# A prune that hangs holds no lock and blocks nothing, but a stuck docker call
+# would keep the unit active until the next trigger. Generous: the measured run
+# deletes eighty images in seconds.
+TimeoutStartSec=600
+
+[Install]
+# No WantedBy: this unit is started by its timer, never enabled directly.

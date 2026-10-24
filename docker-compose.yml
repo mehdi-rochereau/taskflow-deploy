@@ -152,8 +152,15 @@ services:
       # is up, NOT that the Angular build was copied into the image. An empty
       # /usr/share/nginx/html would still report healthy.
       #
-      # -f is what makes the probe mean anything. Without it curl exits 0 on a
-      # 404 and the check passes while the server answers whatever it likes.
+      # -f makes curl exit non-zero on an HTTP error response. It changes
+      # nothing today: this image is a SPA, try_files serves index.html with a
+      # 200 on every unknown path and /healthz is an exact-match location, so
+      # the server has almost no way to answer anything but 200. Verified on
+      # 24 October 2026: an unknown path and a POST on /healthz both return 200,
+      # with and without -f. It is kept as a guard against a future where the
+      # server does return an error, a missing document root or a configuration
+      # fault producing a 500, where the difference between "answered badly" and
+      # "did not answer" is exactly what a probe must catch.
       # -s only silences the progress meter.
       #
       # 127.0.0.1 and not localhost. The container's nginx.conf declares a bare

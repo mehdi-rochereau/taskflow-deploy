@@ -76,10 +76,13 @@ taskflow-deploy/
 │   ├── backup-db.sh       # Automated database backup
 │   ├── check-nginx-sync.sh    # Compares nginx/ with what is deployed
 │   ├── deploy.sh          # Production deployment script
+│   ├── prune-images.sh    # Weekly removal of stale TaskFlow images
 │   └── .gitattributes     # Line ending configuration
 └── systemd/
     ├── taskflow-backup.service
     ├── taskflow-backup.timer
+    ├── taskflow-prune.service
+    ├── taskflow-prune.timer
     └── .gitattributes     # Line ending configuration
 ```
 
@@ -527,6 +530,56 @@ Manual dumps named `taskflow_*.sql` are never pruned.
 Restoring, and verifying that a backup is actually restorable, is documented in
 [`docs/04-securite/DATABASE_RESTORE.md`](docs/04-securite/DATABASE_RESTORE.md).
 A backup that has never been restored is not a backup.
+
+---
+
+## Image Retention
+
+Every deployment moves the `latest` tag onto a new image and leaves its
+predecessor untagged. Measured on 24 October 2026 before the first prune:
+eighty-six images for four running containers, 16.68 GB of which nearly all
+reclaimable. Saturation would have surfaced as a failing `docker compose pull`
+whose apparent cause has nothing to do with the real one.
+
+`scripts/prune-images.sh` removes TaskFlow images no longer needed, every Sunday
+at 04:00 UTC through a systemd timer. The first run removed 73 images and freed
+12.1 GB.
+
+**Install the timer** (once, after cloning):
+
+```bash
+sudo cp systemd/taskflow-prune.service /etc/systemd/system/
+sudo cp systemd/taskflow-prune.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now taskflow-prune.timer
+```
+
+**See what would be removed, without removing anything:**
+
+```bash
+./scripts/prune-images.sh --dry-run
+```
+
+**Check the schedule and the last run:**
+
+```bash
+systemctl list-timers taskflow-prune.timer
+journalctl -u taskflow-prune.service --since "30 days ago"
+```
+
+A bare `docker image prune` would not do. `deploy.sh` records the immutable image
+id of the running container, and the pull that follows moves `latest` onto the
+new image, so the recorded one becomes untagged: exactly what a dangling prune
+deletes. The rollback would then fail, and only at rollback time, which is the
+worst possible moment. The script keeps every image a container was created
+from, every image named in a rollback reference, every image still carrying a
+tag of either repository, and one extra untagged generation per service as a
+safety net.
+
+Untagged images are attributed to a service through the OCI source label that
+`docker/metadata-action` writes at build time. Images carrying no such label are
+left alone: `mysql` and shared base layers are none of this script's business,
+which is why `docker system df` still reports reclaimable space after a prune.
 
 ---
 
